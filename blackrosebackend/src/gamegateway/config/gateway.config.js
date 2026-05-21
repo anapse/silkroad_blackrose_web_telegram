@@ -1,0 +1,49 @@
+export const NETWORK = {
+  SERVER_HOST:
+    process.env.SERVER_HOST || '26.74.212.246',
+
+  GATEWAY_PORT:
+    Number(process.env.GATEWAY_PORT || 15880),
+
+  AGENT_PORT:
+    Number(process.env.AGENT_PORT || 15882),
+
+  WS_PORT:
+    Number(process.env.WS_PORT || 8081),
+};
+
+export const GATEWAY_CONFIG = {
+  WS_HOST: '0.0.0.0',
+  WS_PORT: NETWORK.WS_PORT,
+
+  GAME_IP: NETWORK.SERVER_HOST,
+  GAME_PORT: NETWORK.GATEWAY_PORT,
+
+  AGENT_IP: NETWORK.SERVER_HOST,
+  AGENT_PORT: NETWORK.AGENT_PORT,
+
+  ENABLE_SECURITY: false,
+  DEBUG: true,
+
+  SERVER_TIMEOUT: Number(process.env.SERVER_TIMEOUT || 30000),
+  MAX_CLIENTS: 500,
+  CLOUDFLARE_MODE: false,
+
+  RECONNECT_OPTIONS: {
+    ENABLED: false,
+    MAX_ATTEMPTS: 3,
+    DELAY_MS: 2000,
+  },
+
+  TIMEOUTS: {
+    TCP_CONNECT_TIMEOUT: 10000,
+    IDLE_TIMEOUT: 120000,
+    WS_PING_INTERVAL: 30000,
+  },
+
+  PACKET_LIMITS: {
+    MAX_SIZE: 65535,
+    RATE_LIMIT_ENABLED: true,
+    MAX_PACKETS_PER_SEC: 150,
+  },
+};
