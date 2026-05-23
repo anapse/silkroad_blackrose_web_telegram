@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               x:Class="bot.views.ItemDetallesPopup"
+                xmlns:local="clr-namespace:bot.model.ItemDetalleModel"
+
+               HorizontalOptions="Fill"
+               Color="Transparent">
+    <StackLayout BackgroundColor="Transparent"
+                 Padding="50">
+        <Frame BackgroundColor="#E5000D44"
+               BorderColor="#E5000D44"
+               CornerRadius="10"
+               Padding="10"
+               HorizontalOptions="FillAndExpand">
+            <VerticalStackLayout BackgroundColor="Transparent">
+                <HorizontalStackLayout
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="Center"
+                    Padding="20,0,0,0">
+                    <Label Text="{Binding Item.Name }"
+                       FontSize="18"
+                       TextColor="{Binding Item.ColoritemName}"
+                       FontAttributes="Bold"
+                        />
+                    <Label 
+                        Text="{Binding Item.OptLevel , StringFormat='(+{0})'}"
+                        FontSize="18"
+                        TextColor="{Binding Item.ColoritemName}"
+                        FontAttributes="Bold" 
+                        Margin="10,0,0,0">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                     Binding="{Binding Item.OptLevel}"
+                     Value="0">
+                                <Setter Property="IsVisible"
+                    Value="False" />
+                            </DataTrigger>
+
+                        </Label.Triggers>
+                    </Label>
+                </HorizontalStackLayout>
+
+                <StackLayout Margin="0,20,0,0">
+                    <Label Text="{Binding Item.Shortitem}"
+                           TextColor="#EFDAA4"
+                           FontSize="16" />
+                    <Label Text="{Binding Item.MountingPart}"
+       TextColor="#EFDAA4"
+       FontSize="18" >
+                        <Label.Triggers>
+                            <!-- Trigger para cuando el texto es una cadena vacía -->
+                            <DataTrigger TargetType="Label"
+                              Binding="{Binding Item.MountingPart}" 
+                               Value="">
+                                <Setter Property="IsVisible"
+                              Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+
+                    <Label Text="{Binding Item.Degree}"
+                           TextColor="#EFDAA4"
+                           FontSize="16" >
+                        <Label.Triggers>
+                            <!-- Trigger para cuando el texto es una cadena vacía -->
+                            <DataTrigger TargetType="Label"
+                              Binding="{Binding Item.Degree}" 
+                               Value="">
+                                <Setter Property="IsVisible"
+                              Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </StackLayout>
+                <StackLayout x:Name="itemStatWhiteView" Margin="0,15,0,15">
+                    <ContentView Content="{Binding Item.CurrentView}" />
+                </StackLayout>
+                <StackLayout>
+                    <Label Text="{Binding Item.Lvl}"
+                           TextColor="{Binding Item.ColoritemlVL}"
+                           FontSize="16" />
+                    <Label Text="{Binding Item.Genero}"
+                       TextColor="{Binding Item.ColoritemlVL}"
+                         FontSize="16" >
+                        <Label.Triggers>
+                            <!-- Trigger para cuando el texto es una cadena vacía -->
+                            <DataTrigger TargetType="Label"
+                            Binding="{Binding Item.Genero}" 
+                            Value="">
+                                <Setter Property="IsVisible"
+                            Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    <Label Text="{Binding Item.Raza}"
+                           TextColor="white"
+                           FontSize="16" />
+                </StackLayout>
+            </VerticalStackLayout>
+        </Frame>
+    </StackLayout>
+</toolkit:Popup>

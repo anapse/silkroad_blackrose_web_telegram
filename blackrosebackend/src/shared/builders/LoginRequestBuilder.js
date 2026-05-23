@@ -35,18 +35,18 @@ export class LoginRequestBuilder {
      * ESTRUCTURA VSRO v130 VIETNAM: [locale (byte)][username (string)][password (string - TEXTO PLANO)][serverId (word)]
      *
      * @param {string} username - Nombre de usuario
-     * @param {string} password - Contraseña en TEXTO PLANO (no MD5)
-     * @param {number} serverId - ID del servidor (ej: 64 para Vietnam)
+     * @param {string} password - Contraseña en TEXTO PLANO
+     * @param {number} serverId - ID del servidor
      * @param {number} locale - Locale (ej: 22 para Vietnam)
      * @returns {Object} Objeto con payload (Buffer) y encrypted (boolean) - REQUIERE encriptación Blowfish
      */
     static buildLoginRequest(username, password, serverId = DEFAULT_SERVER_ID, locale = LOCALE_VIETNAM) {
         const packet = new PacketWriter();
 
-        // PAYLOAD: locale, username, password (TEXTO PLANO, NO MD5), serverId
+        // PAYLOAD: locale, username, password (TEXTO PLANO), serverId
         packet.writeByte(locale);
         packet.writeString(username);
-        packet.writeString(password);  // ← TEXTO PLANO, NO MD5
+        packet.writeString(password);  // ← TEXTO PLANO
         packet.writeWord(serverId);
 
         return {
@@ -70,19 +70,35 @@ export class LoginRequestBuilder {
     }
 
     /**
-     * Construye un paquete de GAME_LOGIN (0x6103)
-     * Se envía después de reconectar al Agent Server con el sessionId provisto por el Gateway
-     * ESTRUCTURA: [sessionId (dword)]
-     * 
-     * @param {number} sessionId - Session ID recibido en LOGIN_RESPONSE
-     * @returns {Buffer} Paquete COMPLETO con size, opcode, payload
+     * Construye un paquete de GAME_LOGIN (0x6103) para el Agent Server
+     * Basado en xBot Agent.cs Remote_PacketHandler:
+     *   protocol.WriteUInt(id);
+     *   protocol.WriteAscii(username);
+     *   protocol.WriteAscii(password);
+     *   protocol.WriteUShort(locale);  // WORD, no byte
+     *   protocol.WriteUInt(0u);        // MAC vacío
+     *   protocol.WriteUShort(0);       // padding
+     *
+     * @param {number} token - Session ID recibido en LOGIN_RESPONSE (0xA102)
+     * @param {string} username - Nombre de usuario (texto plano)
+     * @param {string} password - Contraseña (texto plano, NO MD5)
+     * @param {number} locale - Locale (22 para Vietnam)
+     * @returns {Object} { payload, encrypted }
      */
-    static buildGameLogin(sessionId) {
-        const opcode = 0x6103;
+    static buildGameLogin(token, username, password, locale = LOCALE_VIETNAM) {
         const packet = new PacketWriter();
-        const token = Number(sessionId || 0);
-        packet.writeDWord(token);
-        return this._buildPacketWithOpcode(opcode, packet.getBytes());
+
+        packet.writeDWord(Number(token || 0));
+        packet.writeString(username || '');
+        packet.writeString(password || '');
+        packet.writeWord(locale);
+        packet.writeDWord(0);   // MAC vacío
+        packet.writeWord(0);    // padding
+
+        return {
+            payload: packet.getBytes(),
+            encrypted: true,
+        };
     }
 
     /**

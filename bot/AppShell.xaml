@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell x:Class="bot.AppShell"
+       xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:bot.views"
+       Title="bot"
+       BackgroundColor="{StaticResource ColorBackground}"
+       Shell.TabBarUnselectedColor="{StaticResource ColorBorderBoton}"
+       Shell.TabBarTitleColor="White"
+       Shell.TabBarForegroundColor="Blue"
+       FlyoutBackgroundImage="fondo.jpg"
+       Shell.TabBarBackgroundColor="{StaticResource ColorBackground}"
+       FlyoutBackgroundImageAspect="AspectFill"
+       Shell.NavBarIsVisible="False">
+    <!-- Flyout Header (encabezado del menú lateral) -->
+    <Shell.FlyoutHeader>
+        <Grid HeightRequest="100">
+            <Image Source="fondo.jpg"
+                   Aspect="AspectFill"
+                   VerticalOptions="FillAndExpand"
+                   HorizontalOptions="FillAndExpand" />
+            <Label Text="Clientless"
+                   TextColor="Black"
+                   FontSize="Large"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+        </Grid>
+    </Shell.FlyoutHeader>
+    <!-- Definición de los ítems del Flyout (navegación lateral) -->
+    <FlyoutItem FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Start"
+                      Icon="encendido.png"
+                      ContentTemplate="{DataTemplate local:MainPage}"
+                      Route="MainPage" />
+        <ShellContent Title="Player"
+                      Icon="usuario.png"
+                      ContentTemplate="{DataTemplate local:Player}"
+                      Route="Player" />
+        <ShellContent Title="Bot"
+                      Icon="bot.png"
+                      ContentTemplate="{DataTemplate local:Botconfig}"
+                      Route="Bot" />
+        <ShellContent Title="Chat"
+                      Icon="chat.png"
+                      ContentTemplate="{DataTemplate local:Chat}"
+                      Route="Chat" />
+        <ShellContent Title="Stall"
+                      Icon="stall.png"
+                      ContentTemplate="{DataTemplate local:Stall}"
+                      Route="Stall" />
+    </FlyoutItem>
+    <!-- Tab Bar (barra de pestañas) - si la usas en tu aplicación -->
+    <TabBar>
+        <ShellContent Title="Start"
+                      Icon="encendido.png"
+                      ContentTemplate="{DataTemplate local:MainPage}" />
+        <ShellContent Title="Player"
+                      Icon="usuario.png"
+                      ContentTemplate="{DataTemplate local:Player}" />
+        <ShellContent Title="Bot"
+                      Icon="bot.png"
+                      ContentTemplate="{DataTemplate local:Botconfig}" />
+        <ShellContent Title="Chat"
+                      Icon="chat.png"
+                      ContentTemplate="{DataTemplate local:Chat}" />
+        <ShellContent Title="Stall"
+                      Icon="stall.png"
+                      ContentTemplate="{DataTemplate local:Stall}" />
+    </TabBar>
+</Shell>

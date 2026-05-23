@@ -128,6 +128,12 @@ class TcpClient {
 
     if (this.socket) {
       try {
+        // Eliminar callbacks ANTES de destruir para evitar que onCloseCallback
+        // dispare sessionManager.destroySession() en un cierre intencional
+        const closeCb = this.onCloseCallback;
+        this.onDataCallback = null;
+        this.onCloseCallback = null;
+        this.onErrorCallback = null;
         this.socket.removeAllListeners('data');
         this.socket.removeAllListeners('close');
         this.socket.removeAllListeners('error');

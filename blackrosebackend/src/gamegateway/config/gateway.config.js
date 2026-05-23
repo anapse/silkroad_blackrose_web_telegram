@@ -3,7 +3,7 @@ export const NETWORK = {
     process.env.SERVER_HOST || '26.74.212.246',
 
   GATEWAY_PORT:
-    Number(process.env.GATEWAY_PORT || 15880),
+    Number(process.env.GATEWAY_PORT || 15779),
 
   AGENT_PORT:
     Number(process.env.AGENT_PORT || 15882),

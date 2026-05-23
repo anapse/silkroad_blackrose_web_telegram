@@ -413,6 +413,8 @@ Blowfish.prototype = {
 	Decode: function (stream, offset, length) {
 		if (length % 8 != 0 || length == 0) {
 			console.log("ERROR invalid Lenght");
+			// Prevent crash: return empty buffer instead of trying to decrypt unaligned data
+			return Buffer.alloc(0);
 		}
 		var workspace = new Buffer(length);
 		stream.copy(workspace, 0, offset);

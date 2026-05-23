@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="bot.views.ItemStats.ItemWeaponCh">
+    <VerticalStackLayout>
+        <Label 
+                  Text="{Binding ItemId, StringFormat='Phy. atk. pwr {0}'}"
+             FontSize="16"
+            VerticalOptions="Center" 
+            HorizontalOptions="Start" />
+        <Label 
+             FontSize="16"
+             Text="{Binding ItemId, StringFormat='Mag. atk. pwr {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+        <Label  FontSize="16"
+             Text="{Binding Durabilidad, StringFormat='Durability {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+        <Label  FontSize="16"
+      Text="{Binding Range, StringFormat='Attack distance {0}'}"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+        <Label  FontSize="16"
+             Text="{Binding HitRatio, StringFormat='Attack rate {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+
+        <Label  FontSize="16"
+             Text="{Binding Critical, StringFormat='Critical {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+        <Label  FontSize="16"
+             Text="{Binding ItemId, StringFormat='Phy. reinforcer {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+        <Label  FontSize="16"
+             Text="{Binding ItemId, StringFormat='Phy. reinforcer {0}'}"
+       VerticalOptions="Center" 
+       HorizontalOptions="Start" />
+
+    </VerticalStackLayout>
+</ContentView>

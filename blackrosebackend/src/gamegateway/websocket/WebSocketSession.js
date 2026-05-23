@@ -5,6 +5,8 @@ import {
   handleLoginMessage,
   handleCharacterSelectMessage,
   handleCharacterListRequestMessage,
+  handleDisconnectCharacterMessage,
+  handleChatSendMessage,
 } from '../../shared/WebSocketLoginHandler.js';
 
 class WebSocketSession {
@@ -98,6 +100,40 @@ class WebSocketSession {
           const session = sessionManager.getSession(this.sessionId);
           if (session && session.tcpSession) {
             handleCharacterSelectMessage(parsed, this.sessionId, session.tcpSession);
+          }
+          return;
+        }
+
+        // Manejar desconexión de personaje (volver a selección)
+        if (parsed.type === 'DISCONNECT_CHARACTER') {
+          const session = sessionManager.getSession(this.sessionId);
+          if (session && session.tcpSession) {
+            handleDisconnectCharacterMessage(parsed, this.sessionId, session.tcpSession);
+          }
+          return;
+        }
+
+        // Manejar envío de mensajes de chat
+        if (parsed.type === 'CHAT_SEND') {
+          const session = sessionManager.getSession(this.sessionId);
+          if (session && session.tcpSession) {
+            handleChatSendMessage(parsed, this.sessionId, session.tcpSession);
+          }
+          return;
+        }
+
+        // Manejar respuesta de captcha desde el frontend
+        if (parsed.type === 'CAPTCHA_REPLY') {
+          const session = sessionManager.getSession(this.sessionId);
+          if (session && session.tcpSession && session.tcpSession.packetRouter) {
+            const code = parsed.code || '';
+            Logger.info(`[CAPTCHA_REPLY] Frontend sent code: "${code}"`, 'WebSocketSession');
+            const PacketWriter = require('../packet/PacketWriter');
+            const captchaPacket = new PacketWriter();
+            captchaPacket.writeString(code);
+            const encPacket = session.tcpSession.security.formatPacket(0x6323, captchaPacket.getBytes(), true);
+            session.tcpSession.send(encPacket);
+            Logger.info('[CAPTCHA_REPLY] Sent 0x6323 with user code', 'WebSocketSession');
           }
           return;
         }

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:bot.views"
+             BackgroundImageSource="fondo.jpg"
+             x:Class="bot.views.Botconfig"
+             Title="Bot">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20"
+                             Padding="20">
+            <!-- Sección de Conexión al Servidor -->
+            <Frame BorderColor="black"
+                   BackgroundColor="Transparent"
+                   CornerRadius="10"
+                   Padding="15"
+                   HasShadow="True">
+                <VerticalStackLayout Spacing="15">
+                    <Button Text="{Binding Botonconectado}"
+                            BackgroundColor="{Binding Colorconectar }"
+                            CornerRadius="5"
+                            Padding="10"
+                            FontAttributes="Bold"
+                            Command="{Binding ComandoIniciarBot}" />
+                    <Button Text="{Binding Botonconectado2}"
+                            BackgroundColor="{Binding Colorconectar2 }"
+                            Command="{Binding ComandoApagarBot}"
+                            CornerRadius="5"
+                            Padding="10"
+                            FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </Frame>
+            <VerticalStackLayout Padding="10">
+                <Label Text="X Coordinate:" />
+                <Entry x:Name="x_cord"
+                       Keyboard="Numeric"
+                       Text="{Binding X_cord}" />
+                <Label Text="Y Coordinate:" />
+                <Entry x:Name="y_cord"
+                       Keyboard="Numeric"
+                       Text="{Binding Y_cord}" />
+                <Button Text="Dar Coordenadas"
+                        BackgroundColor="blue"
+                        CornerRadius="5"
+                        Padding="10"
+                        FontAttributes="Bold"
+                        Command="{Binding ComandoSetcoord}" />
+                <VerticalStackLayout>
+                    <Slider Minimum="10"
+                            Maximum="200"
+                            Value="{Binding SliderValue}" />
+                    <Label Text="{Binding SliderValue, StringFormat='Valor del Slider: {0:0}'}"
+                           FontSize="24" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

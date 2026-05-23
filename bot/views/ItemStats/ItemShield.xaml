@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="bot.views.ItemStats.ItemShield">
+    <VerticalStackLayout>
+        <Label 
+          Text="{Binding ItemId, StringFormat='Phy. def. pwr {0}'}"
+     FontSize="16"
+    VerticalOptions="Center" 
+    HorizontalOptions="Start" />
+        <Label 
+      Text="{Binding ItemId, StringFormat='Mag. def. pwr {0}'}"
+ FontSize="16"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+        <Label 
+      Text="{Binding Durabilidad, StringFormat='Durability {0}'}"
+ FontSize="16"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+        <Label 
+      Text="{Binding BlockRatio, StringFormat='Blocking rate {0}'}"
+ FontSize="16"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+        <Label 
+      Text="{Binding PhysicalReinforce, StringFormat='Phy. reinforce {0}'}"
+ FontSize="16"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+        <Label 
+      Text="{Binding MagicalReinforce, StringFormat='Phy. reinforce {0}'}"
+ FontSize="16"
+VerticalOptions="Center" 
+HorizontalOptions="Start" />
+    </VerticalStackLayout>
+</ContentView>

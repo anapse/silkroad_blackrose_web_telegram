@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:bot.views"
+             x:Class="bot.views.Player"
+             Title="Player">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <local:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <DataTemplate x:Key="InventoryItemTemplate">
+                <Grid BackgroundColor="Transparent">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="74" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="74" />
+                    </Grid.ColumnDefinitions>
+                    <Image Source="{Binding InventarioSlot}"
+                           WidthRequest="70"
+                           HeightRequest="70"
+                           Grid.Row="0"
+                           Grid.Column="0" />
+                    <Image Source="{Binding Icon}"
+                           WidthRequest="60"
+                           HeightRequest="60"
+                           Grid.Row="0"
+                           Grid.Column="0">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShowItemDetailsCommand}"
+                                                  CommandParameter="{Binding Slot}" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <!-- Commented out Label can be included if needed -->
+                    <Label Text="{Binding Quantity}"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           VerticalOptions="Start"
+                           HorizontalOptions="Start"
+                           BackgroundColor="Black"
+                           Grid.Row="0"
+                           Grid.Column="0"
+                           Margin="11,8,0,0"
+                           Padding="0">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding Quantity}"
+                                         Value="0">
+                                <Setter Property="IsVisible"
+                                        Value="False" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding Quantity}"
+                                         Value="1">
+                                <Setter Property="IsVisible"
+                                        Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </Grid>
+            </DataTemplate>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    <ScrollView>
+        <StackLayout Spacing="20"
+                     Padding="10">
+            <!-- ///////////////  Player Section //////////////////// -->
+            <StackLayout>
+                <Label Text="Player"
+                       FontSize="22"
+                       TextColor="{StaticResource ColorBorderBoton}"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+                <BoxView Color="{StaticResource ColorBorderBoton}"
+                         HeightRequest="2"
+                         HorizontalOptions="FillAndExpand"
+                         VerticalOptions="Start"
+                         Opacity="0.8" />
+            </StackLayout>
+            <Frame BorderColor="black"
+                   BackgroundColor="#50000000"
+                   CornerRadius="10"
+                   Padding="10"
+                   HasShadow="True">
+                <StackLayout>
+                    <Frame BorderColor="{StaticResource ColorBorderFrame}"
+                           BackgroundColor="#20ffffff"
+                           Padding="10,5">
+                        <StackLayout Orientation="Horizontal">
+                            <Frame WidthRequest="100"
+                                   HeightRequest="100"
+                                   CornerRadius="50"
+                                   IsClippedToBounds="True"
+                                   HorizontalOptions="StartAndExpand"
+                                   Padding="0"
+                                   Margin="0">
+                                <Image Source="{Binding Imgplayer}"
+                                       Aspect="AspectFill"
+                                       WidthRequest="100"
+                                       HeightRequest="100"
+                                       Margin="0, 0, 0, 0" />
+                            </Frame>
+                            <Grid HorizontalOptions="EndAndExpand">
+                                <StackLayout HorizontalOptions="EndAndExpand"
+                                             WidthRequest="230"
+                                             Padding="5,0"
+                                             Margin="0"
+                                             Grid.Row="0"
+                                             Grid.Column="0">
+                                    <StackLayout Orientation="Horizontal"
+                                                 WidthRequest="200"
+                                                 Padding="1">
+                                        <Label Text="{Binding PlayerName, StringFormat='{0}'}"
+                                               FontSize="20"
+                                               FontAttributes="Bold"
+                                               TextColor="White"
+                                               HorizontalOptions="StartAndExpand" />
+                                        <Label Text="{Binding Level, StringFormat='Lv: {0}'}"
+                                               FontSize="18"
+                                               TextColor="Gold"
+                                               HorizontalOptions="EndAndExpand" />
+                                    </StackLayout>
+                                    <Frame CornerRadius="8"
+                                           BackgroundColor="#464243"
+                                           Padding="15,3,4,3">
+                                        <StackLayout>
+                                            <Frame Margin="0"
+                                                   Padding="0"
+                                                   BackgroundColor="red">
+                                                <Label Text="{Binding HP, StringFormat='{0} / {0}'}"
+                                                       FontSize="14"
+                                                       HorizontalTextAlignment="Center"
+                                                       WidthRequest="200"
+                                                       TextColor="White"
+                                                       VerticalOptions="Center"
+                                                       Padding="3"
+                                                       Margin="0,0,0,3" />
+                                            </Frame>
+                                            <Frame Margin="0"
+                                                   Padding="0"
+                                                   BackgroundColor="Blue">
+                                                <Label Text="{Binding MP, StringFormat='{0} / {0}'}"
+                                                       HorizontalTextAlignment="Center"
+                                                       FontSize="14"
+                                                       WidthRequest="200"
+                                                       TextColor="White"
+                                                       Padding="3"
+                                                       VerticalOptions="Center" />
+                                            </Frame>
+                                        </StackLayout>
+                                    </Frame>
+                                </StackLayout>
+                                <Image Source="{Binding Imgraza}"
+                                       Aspect="AspectFill"
+                                       WidthRequest="35"
+                                       HeightRequest="35"
+                                       Grid.Row="0"
+                                       Grid.Column="0"
+                                       VerticalOptions="End"
+                                       HorizontalOptions="Start"
+                                       Margin="-90,80,0,0" />
+                            </Grid>
+                        </StackLayout>
+                    </Frame>
+                    <Label  Text="{Binding SkillPoints, StringFormat='Skill point: {0}'}"
+                            FontAttributes="Bold"
+                            TextColor="Gold"
+                            Margin="0,5,0,5" />
+                    <StackLayout Orientation="Horizontal">
+                        <Label Text="Exp: "
+                               FontAttributes="Bold" />
+                        <Frame BackgroundColor="#50000000"
+                               BorderColor="{StaticResource ColorBorderFrame}"
+                               WidthRequest="300"
+                               Padding="0">
+                            <Frame BackgroundColor="Green"
+                                   WidthRequest="{Binding Expbarra}"
+                                   HeightRequest="15"
+                                   HorizontalOptions="StartAndExpand"
+                                   Padding="0">
+                                <Label Text="{Binding EXP, StringFormat='{0}%'}"
+                                       HorizontalTextAlignment="Center"
+                                       FontAttributes="Bold" />
+                            </Frame>
+                        </Frame>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
+            <!-- ///////////////  Items Section //////////////////// -->
+            <Frame BorderColor="{StaticResource ColorBorderFrame}"
+                   BackgroundColor="Transparent"
+                   CornerRadius="10"
+                   Padding="5"
+                   HasShadow="True">
+                <StackLayout>
+                    <Label Text="Inventario"
+                           FontSize="20"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           Margin="10,10" />
+                    <StackLayout Spacing="20">
+                        <!-- ///////////////  Items Equipament //////////////////// -->
+                        <Frame CornerRadius="10"
+                               Padding="1"
+                               BackgroundColor="#737173">
+                            <Frame BackgroundColor="#212421"
+                                   Padding="8"
+                                   HorizontalOptions="FillAndExpand">
+                                <StackLayout HorizontalOptions="FillAndExpand"
+                                             VerticalOptions="StartAndExpand"
+                                             Padding="0">
+                                    <Grid ColumnDefinitions="*,*,*,*"
+                                          RowDefinitions="74,30,74,74,74,74,74,10,74"
+                                          BackgroundColor="Black"
+                                          HorizontalOptions="FillAndExpand"
+                                          RowSpacing="2"
+                                          ColumnSpacing="2"
+                                          Padding="5,5">
+                                        <!-- lado izkierdo   -->
+                                        <!-- weapon  -->
+                                        <Image Source="Inventario/arma.png"
+                                               WidthRequest="105"
+                                               HeightRequest="105"
+                                               Grid.Row="0"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot6.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="0"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot6.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- casco  -->
+                                        <Image Source="Inventario/casco.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="2"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot0.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="2"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot0.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- pecho  -->
+                                        <Image Source="Inventario/pecho.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="3"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot1.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="3"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot1.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- pant  -->
+                                        <Image Source="Inventario/pantalon.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="4"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot4.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="4"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot4.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- earring  -->
+                                        <Image Source="Inventario/aretes.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="5"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot9.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="5"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot9.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- ring   -->
+                                        <Image Source="Inventario/anillo.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="6"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot11.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="6"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot11.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- boton avatar   -->
+                                        <Image Source="Inventario/avatarbuton.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="8"
+                                               Grid.Column="0"
+                                               HorizontalOptions="Center" />
+                                        <!-- /////////  lado derecha ///////  -->
+                                        <!--  ////////boton escudo ///////  -->
+                                        <Image Source="Inventario/escudo.png"
+                                               WidthRequest="105"
+                                               HeightRequest="105"
+                                               Grid.Row="0"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot7.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="0"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot7.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- hombreras  -->
+                                        <Image Source="Inventario/hombrera.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="2"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot2.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="2"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot2.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- guantes  -->
+                                        <Image Source="Inventario/guantes.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="3"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot3.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="3"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot3.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- botas  -->
+                                        <Image Source="Inventario/botas.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="4"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot5.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="4"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot5.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- collar  -->
+                                        <Image Source="Inventario/collar.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="5"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot10.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="5"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot10.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- ring   derecho -->
+                                        <Image Source="Inventario/anillo.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="6"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center" />
+                                        <Image Source="{Binding Slot12.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="6"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot12.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                        <!-- boton jobslot   -->
+                                        <Image Source="Inventario/jobslot.png"
+                                               WidthRequest="72"
+                                               HeightRequest="72"
+                                               Grid.Row="8"
+                                               Grid.Column="3"
+                                               HorizontalOptions="End" />
+                                        <Image Source="{Binding Slot8.Icon}"
+                                               WidthRequest="60"
+                                               HeightRequest="60"
+                                               Grid.Row="8"
+                                               Grid.Column="3"
+                                               HorizontalOptions="Center">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ShowItemDetailsCommand}"
+                                                                      CommandParameter="{Binding Slot8.Slot}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                    </Grid>
+                                </StackLayout>
+                            </Frame>
+                        </Frame>
+                        <!-- ///////////////  Items Pages //////////////////// -->
+                        <Frame CornerRadius="10"
+                               Padding="2"
+                               BackgroundColor="#737173">
+                            <StackLayout Margin="0,0,0,0"
+                                         Padding="10,10,10,8"
+                                         BackgroundColor="#000">
+                                <StackLayout Orientation="Horizontal"
+                                             HorizontalOptions="FillAndExpand"
+                                             HeightRequest="37"
+                                             Padding="15,0,0,0">
+                                    <CollectionView ItemsSource="{Binding PageNumbers}"
+                                                    ItemsLayout="HorizontalList"
+                                                    HorizontalOptions="FillAndExpand">
+                                        <CollectionView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border     BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}}"
+                                                            HorizontalOptions="Start"
+                                                            StrokeShape="RoundRectangle 0,10,0,0"
+                                                            WidthRequest="90"
+                                                            Margin="0,5,0,1">
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.PageSelectedCommand}"
+                                                                              CommandParameter="{Binding PageName}" />
+                                                    </Border.GestureRecognizers>
+                                                    <Label Text="{Binding PageName}"
+                                                           FontSize="20"
+                                                           FontAttributes="Bold"
+                                                           HorizontalTextAlignment="Center"
+                                                           VerticalTextAlignment="Center"
+                                                           TextColor="White"
+                                                           HeightRequest="35"
+                                                           WidthRequest="90"
+                                                           HorizontalOptions="Center"
+                                                           VerticalOptions="Center" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </CollectionView.ItemTemplate>
+                                    </CollectionView>
+                                </StackLayout>
+                                <!-- ///////////////  Items Pages //////////////////// -->
+                                <Frame CornerRadius="10"
+                                       Padding="1"
+                                       BackgroundColor="#737173">
+                                    <Frame BackgroundColor="#212421"
+                                           Padding="8"
+                                           HorizontalOptions="FillAndExpand">
+                                        <StackLayout HorizontalOptions="FillAndExpand">
+                                            <Grid ColumnDefinitions="74,74,74,74"
+                                                  RowDefinitions="74,74,74,74,74,74,74,74"
+                                                  ColumnSpacing="2"
+                                                  RowSpacing="2"
+                                                  BackgroundColor="Black"
+                                                  Padding="2">
+                                                <CollectionView Grid.ColumnSpan="4"
+                                                                Grid.RowSpan="8"
+                                                                BackgroundColor="Transparent"
+                                                                ItemsSource="{Binding InventoryItems}"
+                                                                ItemTemplate="{StaticResource InventoryItemTemplate}">
+                                                    <CollectionView.ItemsLayout>
+                                                        <GridItemsLayout Orientation="Vertical"
+                                                                         Span="4"
+                                                                         HorizontalItemSpacing="2"
+                                                                         VerticalItemSpacing="2" />
+                                                    </CollectionView.ItemsLayout>
+                                                </CollectionView>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,*,*,*,*,*,*,*,*"
+                                                  HeightRequest="35"
+                                                  RowDefinitions="*"
+                                                  Padding="5"
+                                                  HorizontalOptions="FillAndExpand">
+                                                <Image Source="gold.png"
+                                                       WidthRequest="25"
+                                                       HeightRequest="25"
+                                                       Aspect="Fill"
+                                                       Grid.Column="0"
+                                                       Grid.Row="0"
+                                                       Margin="10,0,10,0" />
+                                                <Label Text="{Binding Gold}"
+                                                       HorizontalTextAlignment="End"
+                                                       VerticalTextAlignment="Center"
+                                                       Grid.Row="0"
+                                                       Grid.Column="1"
+                                                       Grid.ColumnSpan="6"
+                                                       HeightRequest="30"
+                                                       FontSize="18"
+                                                       BackgroundColor="black" />
+                                                <Label Text="Gold"
+                                                       FontSize="18"
+                                                       HorizontalTextAlignment="Start"
+                                                       VerticalTextAlignment="Center"
+                                                       TextColor="White"
+                                                       Margin="10,0,0,0"
+                                                       Grid.Row="0"
+                                                       Grid.Column="7"
+                                                       Grid.ColumnSpan="2" />
+                                            </Grid>
+                                        </StackLayout>
+                                    </Frame>
+                                </Frame>
+                            </StackLayout>
+                        </Frame>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
+            <!-- ///////////  Masteries Section   ////////// -->
+            <Frame BorderColor="{StaticResource ColorBorderFrame}"
+                   BackgroundColor="Transparent"
+                   CornerRadius="10"
+                   Padding="15"
+                   HasShadow="True">
+                <StackLayout>
+                    <Label Text="Masteries"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                    <CollectionView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Label Text=""
+                                       FontSize="18" />
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Frame>
+            <!-- Last Unique Kills Section -->
+            <Frame BorderColor="{StaticResource ColorBorderFrame}"
+                   BackgroundColor="Transparent"
+                   CornerRadius="10"
+                   Padding="15"
+                   HasShadow="True">
+                <StackLayout>
+                    <Label Text="Last Unique Kills"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                    <CollectionView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Label Text=""
+                                       FontSize="18" />
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Frame>
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,126 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Osiris\\source\\repos\\bot\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\clases\\infoclass\\items\\itemdatastatscalculator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:clases\\infoclass\\items\\itemdatastatscalculator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\clases\\infoclass\\items\\itemstats.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:clases\\infoclass\\items\\itemstats.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\viewmodel\\itemstatsviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:viewmodel\\itemstatsviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\views\\itemstats\\itemarmadura.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:views\\itemstats\\itemarmadura.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\views\\itemstats\\itemshield.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:views\\itemstats\\itemshield.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|c:\\users\\osiris\\source\\repos\\bot\\views\\itemstats\\itemweaponch.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{DF769E47-24EF-4598-8824-6E9B521B6FDA}|bot.csproj|solutionrelative:views\\itemstats\\itemweaponch.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 220,
+          "SelectedChildIndex": 5,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "ItemArmadura.xaml",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemArmadura.xaml",
+              "RelativeDocumentMoniker": "views\\ItemStats\\ItemArmadura.xaml",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemArmadura.xaml",
+              "RelativeToolTip": "views\\ItemStats\\ItemArmadura.xaml",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAAAB8AAAA4AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2024-09-18T01:40:31.763Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "ItemShield.xaml",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemShield.xaml",
+              "RelativeDocumentMoniker": "views\\ItemStats\\ItemShield.xaml",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemShield.xaml",
+              "RelativeToolTip": "views\\ItemStats\\ItemShield.xaml",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAcAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2024-09-18T01:06:31.575Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "ItemWeaponCh.xaml",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemWeaponCh.xaml",
+              "RelativeDocumentMoniker": "views\\ItemStats\\ItemWeaponCh.xaml",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\views\\ItemStats\\ItemWeaponCh.xaml",
+              "RelativeToolTip": "views\\ItemStats\\ItemWeaponCh.xaml",
+              "ViewState": "AgIAABgAAAAAAAAAAAAAACUAAABEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2024-09-17T07:56:24.024Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ItemStatsViewModel.cs",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\viewmodel\\ItemStatsViewModel.cs",
+              "RelativeDocumentMoniker": "viewmodel\\ItemStatsViewModel.cs",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\viewmodel\\ItemStatsViewModel.cs",
+              "RelativeToolTip": "viewmodel\\ItemStatsViewModel.cs",
+              "ViewState": "AgIAABUBAAAAAAAAAAAwwB0BAABAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-14T23:09:32.613Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ItemDataStatsCalculator.cs",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\Clases\\infoclass\\Items\\ItemDataStatsCalculator.cs",
+              "RelativeDocumentMoniker": "Clases\\infoclass\\Items\\ItemDataStatsCalculator.cs",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\Clases\\infoclass\\Items\\ItemDataStatsCalculator.cs",
+              "RelativeToolTip": "Clases\\infoclass\\Items\\ItemDataStatsCalculator.cs",
+              "ViewState": "AgIAACsAAAAAAAAAAAAgwEgAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:10:36.916Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ItemStats.cs",
+              "DocumentMoniker": "C:\\Users\\Osiris\\source\\repos\\bot\\Clases\\infoclass\\Items\\ItemStats.cs",
+              "RelativeDocumentMoniker": "Clases\\infoclass\\Items\\ItemStats.cs",
+              "ToolTip": "C:\\Users\\Osiris\\source\\repos\\bot\\Clases\\infoclass\\Items\\ItemStats.cs",
+              "RelativeToolTip": "Clases\\infoclass\\Items\\ItemStats.cs",
+              "ViewState": "AgIAACMAAAAAAAAAAAAqwB0AAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T03:33:42.987Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

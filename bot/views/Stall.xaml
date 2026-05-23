@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="bot.views.Stall"
+             BackgroundImageSource="fondo.jpg"
+             Title="Stall">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20"
+                             Padding="20">
+            <!-- Conectar al Servidor -->
+            <Label Text="Stall Manager"
+                   Grid.Row="0"
+                   FontSize="25"
+                   HorizontalTextAlignment="Center"
+                   TextColor="Black"
+                   FontAttributes="Bold"
+                   Margin="0,0,0,10" />
+            <Frame BorderColor="black"
+                   BackgroundColor="Transparent"
+                   CornerRadius="10"
+                   Padding="10"
+                   HasShadow="True">
+                <StackLayout>
+                    <Grid ColumnDefinitions="Auto,*,*"
+                          RowDefinitions="Auto,Auto"
+                          Margin="0,0,0,10">
+                        <Label Grid.Row="0"
+                               Grid.Column="0"
+                               Text="Stall Title"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="FillAndExpand"
+                               VerticalTextAlignment="End" />
+                        <Entry  Grid.Row="0"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                Placeholder="Titulo del Stall"
+                                Text="{Binding Title}"
+                                HorizontalOptions="FillAndExpand"
+                                VerticalTextAlignment="End"
+                                Margin="10,0,0,0"
+                                Unfocused="TitleEntry_Unfocused" />
+                        <Label Grid.Row="1"
+                               Grid.Column="0"
+                               Text="Stall Greeting"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="FillAndExpand"
+                               VerticalTextAlignment="End" />
+                        <Entry  Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                Placeholder="Stall Greeting del Stall"
+                                Text="{Binding StallGreeting}"
+                                HorizontalOptions="FillAndExpand"
+                                VerticalTextAlignment="End"
+                                Margin="10,0,0,0"
+                                Unfocused="StallGreetingEntry_Unfocused" />
+                    </Grid>
+                    <StackLayout Orientation="Horizontal"
+                                 HorizontalOptions="FillAndExpand">
+                        <Button Text="{Binding ButtonText}"
+                                CornerRadius="5"
+                                Padding="10"
+                                FontSize="18"
+                                FontAttributes="Bold"
+                                Margin="10"
+                                HorizontalOptions="FillAndExpand"
+                                Command="{Binding StallCommand}" />
+                        <Button Text="{Binding ButtonModifyText}"
+                                CornerRadius="5"
+                                Padding="10"
+                                FontSize="18"
+                                FontAttributes="Bold"
+                                Margin="10"
+                                Command="{Binding ModifyStallCommand}"
+                                IsEnabled="{Binding IsStallModify}"
+                                HorizontalOptions="FillAndExpand" />
+                    </StackLayout>
+                    <Button Text="Agregar Items"
+                            CornerRadius="5"
+                            Padding="10"
+                            FontAttributes="Bold"
+                            FontSize="18"
+                            Margin="10" />
+                </StackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

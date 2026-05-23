@@ -32,6 +32,37 @@ class TcpSession {
     this.onPacketSendingHook = null;  // Hook triggered when gateway is sending data to TCP GameServer
 
     this.setupEvents();
+    this.startHeartbeat();
+  }
+
+  /**
+   * Inicia heartbeat TCP (0x2002) cada 5 segundos.
+   * Usa security.formatPacket() para generar count/check bytes válidos.
+   */
+  startHeartbeat() {
+    this.stopHeartbeat();
+    Logger.info(`[TcpSession] Starting heartbeat (0x2002 every 5s) for ${this.sessionId}`, 'TcpSession');
+    this._heartbeatTimer = setInterval(() => {
+      if (this.isClosed || !this.security) return;
+      try {
+        const payload = Buffer.alloc(0); // sin payload
+        const pingPacket = this.security.formatPacket(0x2002, payload, false);
+        this.send(pingPacket);
+        Logger.debug(`[TcpSession] Heartbeat 0x2002 sent for ${this.sessionId}`, 'TcpSession');
+      } catch (err) {
+        Logger.warn(`[TcpSession] Heartbeat send failed for ${this.sessionId}`, err, 'TcpSession');
+      }
+    }, 5000);
+  }
+
+  /**
+   * Detiene el heartbeat
+   */
+  stopHeartbeat() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
   }
 
   /**
@@ -137,16 +168,68 @@ class TcpSession {
     }
 
     for (const packet of packets) {
-      const packetObj = PacketTranslator.translate(packet, "RX");
+      // Detectar si el paquete está encriptado (bit 0x8000 en size)
+      const rawSize = packet.payload.readUInt16LE(0);
+      const isEncrypted = (rawSize & 0x8000) !== 0;
+      const payloadSize = rawSize & 0x7fff;
+
+      let processedPayload = packet.payload;
+
+      if (isEncrypted && this.security) {
+        try {
+          // Los datos encriptados empiezan en offset 2 (después del size field).
+          // El PacketAssembler ya entregó el paquete completo con padding Blowfish.
+          const encDataLen = payloadSize + 4; // opcode(2) + count(1) + check(1) + payload
+          const alignedLen = Math.ceil(encDataLen / 8) * 8;
+          const availableLen = packet.payload.length - 2;
+          
+          // Verificar que tenemos suficientes bytes para desencriptar
+          if (availableLen < alignedLen) {
+            Logger.warn(`[DECRYPT] Insufficient data: need=${alignedLen} have=${availableLen} pktLen=${packet.payload.length}`, 'TcpSession');
+            continue; // Saltar este paquete, posiblemente corrupto
+          }
+
+          const readLen = alignedLen;
+          Logger.debug(`[DECRYPT] rawSize=0x${rawSize.toString(16)} payloadSize=${payloadSize} encDataLen=${encDataLen} alignedLen=${alignedLen} availableLen=${availableLen} readLen=${readLen} pktLen=${packet.payload.length}`, 'TcpSession');
+
+          const decrypted = this.security.decode(packet.payload, 2, readLen);
+          // decrypted layout: [realOpcode:2][countByte:1][checkByte:1][payload:N][padding]
+          const realOpcode = decrypted.readUInt16LE(0);
+          const realCountByte = decrypted.readUInt8(2);
+          const realCheckByte = decrypted.readUInt8(3);
+
+          // Reconstruir paquete sin encriptación
+          processedPayload = Buffer.alloc(payloadSize + 6);
+          processedPayload.writeUInt16LE(payloadSize, 0);
+          processedPayload.writeUInt16LE(realOpcode, 2);
+          processedPayload.writeUInt8(realCountByte, 4);
+          processedPayload.writeUInt8(realCheckByte, 5);
+
+          // Copiar payload desde offset 4 del decrypted (después de opcode+count+check)
+          const copyLen = Math.min(payloadSize, decrypted.length - 4);
+          if (copyLen > 0) decrypted.copy(processedPayload, 6, 4, 4 + copyLen);
+
+          const hex_processed = processedPayload.subarray(0, Math.min(processedPayload.length, 32)).toString('hex').toUpperCase();
+          const result_byte = processedPayload.readUInt8(6);
+          Logger.debug(`[DECRYPT] 0x${packet.payload.readUInt16LE(2).toString(16).padStart(4, '0')} → 0x${realOpcode.toString(16).padStart(4, '0')} result_byte=${result_byte} hex=${hex_processed}`, 'TcpSession');
+        } catch (err) {
+          Logger.warn(`[DECRYPT] Failed: ${err.message}`, 'TcpSession');
+        }
+      }
+
+      const packetObj = PacketTranslator.translate(
+        { payload: processedPayload, size: processedPayload.length, opcode: `0x${processedPayload.readUInt16LE(2).toString(16).padStart(4, '0')}` },
+        "RX"
+      );
       session.rxPackets += 1;
       session.lastOpcode = packetObj.opcode;
       session.lastPacketAt = packetObj.timestamp;
       session.lastRxAt = packetObj.timestamp;
       Logger.info(`[RX] opcode=${packetObj.opcode} size=${packetObj.size} session=${this.sessionId}`, 'TcpSession');
       session.relayManager.handleTcpData(packetObj);
-      const handled = this.packetRouter.route(packet.payload, packetObj);
+      const handled = this.packetRouter.route(processedPayload, packetObj);
       if (!handled) {
-        this.handleGatewayPacket(packet.payload, packetObj, session);
+        this.handleGatewayPacket(processedPayload, packetObj, session);
       }
     }
   }
@@ -368,6 +451,7 @@ class TcpSession {
     }
 
     this.isClosed = true;
+    this.stopHeartbeat();
     this.packetAssembler.reset();
     this.security = null;
     this.onPacketReceivedHook = null;

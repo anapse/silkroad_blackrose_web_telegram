@@ -14,6 +14,7 @@
 import Logger from '../gamegateway/utils/Logger.js';
 import sessionManager from '../gamegateway/sessions/SessionManager.js';
 import { GAME_VERSION, LOCALE_VIETNAM, DEFAULT_SERVER_ID } from '../config/gameConstants.js';
+import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
 
 export function handleLoginMessage(message, sessionId, tcpSession) {
     if (message.type !== 'LOGIN') {
@@ -56,13 +57,24 @@ export function handleLoginMessage(message, sessionId, tcpSession) {
     session.loginCredentials = { username, password, serverId, locale, clientVersion };
     Logger.debug(`Stored login credentials for session ${sessionId}`, 'WebSocketLoginHandler');
 
-    if (tcpSession && tcpSession.packetRouter && tcpSession.handshakeComplete) {
-        tcpSession.packetRouter.sendLoginAfterHandshake();
-        if (session.wsSession) {
-            session.wsSession.sendStatus('LOGIN_SENT');
+    // Si el shard list ya se recibió, enviar login inmediatamente
+    if (tcpSession && tcpSession.packetRouter) {
+        if (tcpSession.packetRouter.shardListReceived) {
+            Logger.info('WebSocketLoginHandler: shardListReceived=true, sending login immediately', 'WebSocketLoginHandler');
+            tcpSession.packetRouter.sendAutoLogin();
+            if (session.wsSession) {
+                session.wsSession.sendStatus('LOGIN_SENT');
+            }
+        } else if (tcpSession.handshakeComplete) {
+            Logger.info('WebSocketLoginHandler: handshake complete, login will be sent on shard list', 'WebSocketLoginHandler');
+            if (session.wsSession) {
+                session.wsSession.sendStatus('LOGIN_PENDING_SHARD_LIST');
+            }
+        } else {
+            if (session.wsSession) {
+                session.wsSession.sendStatus('LOGIN_PENDING_HANDSHAKE');
+            }
         }
-    } else if (session.wsSession) {
-        session.wsSession.sendStatus('LOGIN_PENDING_HANDSHAKE');
     }
 }
 
@@ -71,6 +83,15 @@ export function handleLoginMessage(message, sessionId, tcpSession) {
  */
 export function handleCharacterSelectMessage(message, sessionId, tcpSession) {
     if (message.type !== 'CHARACTER_SELECT') {
+        return;
+    }
+
+    // Evitar envíos duplicados: si ya se seleccionó personaje, ignorar
+    if (tcpSession && tcpSession._characterSelected) {
+        Logger.warn(
+            `[CHARACTER_SELECT] Ignored duplicate selection for ${sessionId}`,
+            'WebSocketLoginHandler'
+        );
         return;
     }
 
@@ -90,13 +111,19 @@ export function handleCharacterSelectMessage(message, sessionId, tcpSession) {
     );
 
     try {
-        // Construir paquete de CHARACTER_SELECT
-        const selectPacket = LoginHandler.buildCharacterSelect(characterName);
+        // Marcar que ya se seleccionó personaje
+        tcpSession._characterSelected = true;
+
+        // Construir paquete de CHARACTER_SELECT usando formatPacket (mismo método que PacketRouter)
+        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const p = new PacketWriter();
+        p.writeString(characterName);
+        const encPacket = tcpSession.security.formatPacket(0x7001, p.getBytes(), false);
 
         if (tcpSession && tcpSession.send) {
-            tcpSession.send(selectPacket);
+            tcpSession.send(encPacket);
             Logger.debug(
-                `[CHARACTER_SELECT] Packet sent (${selectPacket.length} bytes)`,
+                `[CHARACTER_SELECT] Packet sent (${encPacket.length} bytes)`,
                 'WebSocketLoginHandler'
             );
         } else {
@@ -154,8 +181,105 @@ export function handleCharacterListRequestMessage(message, sessionId, tcpSession
     }
 }
 
+/**
+ * Maneja desconexión de personaje (0x7005) — vuelve a la pantalla de selección
+ */
+export function handleDisconnectCharacterMessage(message, sessionId, tcpSession) {
+    if (message.type !== 'DISCONNECT_CHARACTER') {
+        return;
+    }
+
+    Logger.info(
+        `[DISCONNECT_CHARACTER] Disconnecting from game world for ${sessionId}`,
+        'WebSocketLoginHandler'
+    );
+
+    try {
+        // 0x7005 con byte 0x01 = volver a selección de personaje
+        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const p = new PacketWriter();
+        p.writeByte(0x01);
+        const encPacket = tcpSession.security.formatPacket(0x7005, p.getBytes(), false);
+
+        if (tcpSession && tcpSession.send) {
+            tcpSession.send(encPacket);
+            // Resetear estado para permitir nueva selección
+            tcpSession._characterSelected = false;
+            if (tcpSession.packetRouter) {
+                tcpSession.packetRouter._characterSelected = false;
+                tcpSession.packetRouter._pendingPlayerInfo = null;
+            }
+            const session = sessionManager.getSession(sessionId);
+            if (session && session.wsSession) {
+                session.wsSession.sendEvent('↩ Personaje desconectado — selecciona otro');
+                session.wsSession.sendStatus('CHARACTER_DISCONNECTED');
+            }
+            Logger.info(
+                `[DISCONNECT_CHARACTER] Packet sent, character selection reset`,
+                'WebSocketLoginHandler'
+            );
+        }
+    } catch (err) {
+        Logger.error(
+            `Error building disconnect character packet`,
+            err,
+            'WebSocketLoginHandler'
+        );
+    }
+}
+
+/**
+ * Maneja envío de mensajes de chat (0x7025) desde el frontend
+ * Estructura 0x7025 (según bot/Clases/Agent.cs Mensajes):
+ *   [1] chatType (2=PM, 3=All)
+ *   [1] unknown (0x00)
+ *   Si PM: [2] targetLen [N] targetName
+ *   [2] messageLen [N] message
+ */
+export function handleChatSendMessage(message, sessionId, tcpSession) {
+    if (message.type !== 'CHAT_SEND') {
+        return;
+    }
+
+    const chatType = message.chatType || 3;
+    const text = message.message || '';
+    const target = message.target || '';
+
+    if (!text) return;
+
+    Logger.info(
+        `[CHAT_SEND] type=${chatType} target=${target} msg=${text.slice(0, 30)}`,
+        'WebSocketLoginHandler'
+    );
+
+    try {
+        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const p = new PacketWriter();
+        p.writeByte(chatType);
+        p.writeByte(0x00); // unknown/padding
+
+        if (chatType === 2 && target) {
+            // Private message: incluir nombre del destinatario
+            p.writeString(target);
+        }
+
+        p.writeString(text);
+
+        const encPacket = tcpSession.security.formatPacket(0x7025, p.getBytes(), true);
+
+        if (tcpSession && tcpSession.send) {
+            tcpSession.send(encPacket);
+            Logger.debug(`[CHAT_SEND] Packet sent (${encPacket.length} bytes)`, 'WebSocketLoginHandler');
+        }
+    } catch (err) {
+        Logger.error(`Error building chat packet`, err, 'WebSocketLoginHandler');
+    }
+}
+
 export default {
     handleLoginMessage,
     handleCharacterSelectMessage,
     handleCharacterListRequestMessage,
+    handleDisconnectCharacterMessage,
+    handleChatSendMessage,
 };

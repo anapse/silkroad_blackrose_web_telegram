@@ -31,24 +31,40 @@ export const OPCODES = {
     // ============================================================================
 
     /**
+     * 0xA100 - PATCH_RESPONSE
+     * Respuesta del servidor al PATCH_REQUEST (0x6100)
+     * Basado en xBot Gateway.cs Remote_PacketHandler:
+     *   case Opcode.SERVER_PATCH_RESPONSE:
+     *       switch (packet.ReadByte()) {
+     *           case 1: → version ok
+     *           case 2: → version error
+     */
+    PATCH_RESPONSE: {
+        opcode: 0xa100,
+        name: 'PATCH_RESPONSE',
+        parse: (reader) => {
+            const result = reader.readByte();
+            return {
+                result,
+                success: result === 1,
+            };
+        },
+    },
+
+    /**
      * 0xA102 - LOGIN_RESPONSE
      * Respuesta del servidor a un intento de login
      * 
-     * Estructura:
-     * - code (byte): 1 = éxito, 0 = error
+     * Estructura (formato xBot confirmado):
+     * - result (byte): 1 = éxito, 0 = error
      * 
-     * Si code == 1:
-     * - sessionId (dword): ID de sesión único
+     * Si result == 1:
+     * - token (dword): Token/ID de sesión
      * - host (string): IP del Agent/Game Server
      * - port (word): Puerto del Agent/Game Server
      * 
-     * Si code == 0 (error):
+     * Si result == 0 (error):
      * - subcode (byte): Código de error específico
-     *   - 1 = Contraseña incorrecta
-     *   - 2 = Cuenta baneada
-     *   - 3 = Usuario ya conectado
-     *   - 5 = Servidor lleno
-     *   - ...más códigos según el servidor
      */
     LOGIN_RESPONSE: {
         opcode: 0xa102,
@@ -57,10 +73,10 @@ export const OPCODES = {
             const result = reader.readByte();
 
             if (result === 1) {
-                // Login exitoso: agent IP, port y token
+                // Login exitoso (formato xBot): result(1) + token(4) + agentIP(string) + agentPort(word)
+                const token = reader.readDWord();
                 const agentIP = reader.readString(true);
                 const agentPort = reader.readWord();
-                const token = reader.readDWord();
 
                 return {
                     success: true,
@@ -71,7 +87,7 @@ export const OPCODES = {
                 };
             }
 
-            // Login fallido
+            // Login fallido — códigos basados en RSBot GatewayLoginResponse.cs
             const subcode = reader.readByte();
             let errorMessage = '';
 
@@ -85,8 +101,134 @@ export const OPCODES = {
                 case 3:
                     errorMessage = 'User already connected';
                     break;
+                case 4:
+                    errorMessage = 'Server check (maintenance?)';
+                    break;
                 case 5:
                     errorMessage = 'Server full';
+                    break;
+                case 6:
+                    errorMessage = 'Server blocked';
+                    break;
+                case 7:
+                    errorMessage = 'Connection refused';
+                    break;
+                case 8:
+                    errorMessage = 'Server overloaded';
+                    break;
+                case 9:
+                    errorMessage = 'Connection failed';
+                    break;
+                case 10:
+                    errorMessage = 'Not accessible';
+                    break;
+                case 11:
+                    errorMessage = 'Server under maintenance';
+                    break;
+                case 12:
+                    errorMessage = 'Server closed';
+                    break;
+                case 13:
+                    errorMessage = 'Server delayed';
+                    break;
+                case 14:
+                    errorMessage = 'Server busy';
+                    break;
+                case 15:
+                    errorMessage = 'API server error';
+                    break;
+                case 16:
+                    errorMessage = 'Server address error';
+                    break;
+                case 17:
+                    errorMessage = 'Server not available';
+                    break;
+                case 18:
+                    errorMessage = 'Server not accessible';
+                    break;
+                case 19:
+                    errorMessage = 'Server connection failed';
+                    break;
+                case 20:
+                    errorMessage = 'Server connection closed';
+                    break;
+                case 21:
+                    errorMessage = 'Login attempt limit exceeded';
+                    break;
+                case 22:
+                    errorMessage = 'Payment required';
+                    break;
+                case 23:
+                    errorMessage = 'Server error';
+                    break;
+                case 24:
+                    errorMessage = 'Country not allowed';
+                    break;
+                case 25:
+                    errorMessage = 'Age limit';
+                    break;
+                case 26:
+                    errorMessage = 'Queue (waiting list)';
+                    break;
+                case 27:
+                    errorMessage = 'Server full (2)';
+                    break;
+                case 28:
+                    errorMessage = 'ISRO block';
+                    break;
+                case 29:
+                    errorMessage = 'KSRO block';
+                    break;
+                case 30:
+                    errorMessage = 'Server connection lost';
+                    break;
+                case 31:
+                    errorMessage = 'Unknown block';
+                    break;
+                case 32:
+                    errorMessage = 'Invalid connection';
+                    break;
+                case 33:
+                    errorMessage = 'Too many connections';
+                    break;
+                case 34:
+                    errorMessage = 'Already connected';
+                    break;
+                case 35:
+                    errorMessage = 'Payment expired';
+                    break;
+                case 36:
+                    errorMessage = 'Underage';
+                    break;
+                case 37:
+                    errorMessage = 'Reserved';
+                    break;
+                case 38:
+                    errorMessage = 'Server full (3)';
+                    break;
+                case 39:
+                    errorMessage = 'Wrong ID or password';
+                    break;
+                case 40:
+                    errorMessage = 'Name change required';
+                    break;
+                case 41:
+                    errorMessage = 'Login cancelled';
+                    break;
+                case 42:
+                    errorMessage = 'No servers available';
+                    break;
+                case 43:
+                    errorMessage = 'Too many attempts';
+                    break;
+                case 44:
+                    errorMessage = 'Blocked account';
+                    break;
+                case 45:
+                    errorMessage = 'Blocked reason';
+                    break;
+                case 46:
+                    errorMessage = 'Temporarily blocked';
                     break;
                 default:
                     errorMessage = `Unknown error (code: ${subcode})`;
@@ -132,9 +274,14 @@ export const OPCODES = {
             const type = reader.readByte();
 
             if (type !== 2) {
+                // Algunos servidores usan type=0 o type=1
+                if (type === 0 || type === 1) {
+                    // Posiblemente sin type byte, reintentar
+                    // reader.pointer -= 1; // No se puede retroceder fácilmente
+                }
                 return {
                     success: false,
-                    error: 'Invalid character list type',
+                    error: 'Invalid character list type: ' + type,
                 };
             }
 
@@ -175,7 +322,7 @@ export const OPCODES = {
 
                     characters.push(character);
                 } catch (err) {
-                    console.error(`Error parsing character ${i}:`, err);
+                    // Silencioso — PacketRouter maneja el parseo con scanner
                 }
             }
 
@@ -210,6 +357,10 @@ export const OPCODES = {
     /**
      * 0xA103 - GAME_LOGIN_REPLY
      * Respuesta a GAME_LOGIN enviado al Agent Server
+     * Basado en RSBot AgentLoginResponse.cs:
+     *   flag=1 → éxito
+     *   flag=0 → error con subcode:
+     *     1=C9, 2=C10, 3=C10, 4=ServerFull, 5=IpLimit
      */
     GAME_LOGIN_REPLY: {
         opcode: 0xa103,
@@ -224,10 +375,31 @@ export const OPCODES = {
             }
 
             const subcode = reader.readByte();
+            let errorMessage = '';
+            switch (subcode) {
+                case 1:
+                    errorMessage = 'C9 - Connection error';
+                    break;
+                case 2:
+                    errorMessage = 'C10 - Connection error';
+                    break;
+                case 3:
+                    errorMessage = 'C10 - Connection error';
+                    break;
+                case 4:
+                    errorMessage = 'Server full';
+                    break;
+                case 5:
+                    errorMessage = 'IP limit reached';
+                    break;
+                default:
+                    errorMessage = `Unknown agent error (code: ${subcode})`;
+            }
             return {
                 success: false,
                 code: 0,
                 subcode,
+                errorMessage,
             };
         },
     },
