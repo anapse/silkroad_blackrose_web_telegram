@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Build outputs
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.apk
+*.aab
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +31,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Visual Studio cache
+.vs/
+
+# OS files
+Thumbs.db
+Desktop.ini

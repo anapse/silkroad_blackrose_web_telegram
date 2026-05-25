@@ -57,22 +57,20 @@ export function handleLoginMessage(message, sessionId, tcpSession) {
     session.loginCredentials = { username, password, serverId, locale, clientVersion };
     Logger.debug(`Stored login credentials for session ${sessionId}`, 'WebSocketLoginHandler');
 
-    // Si el shard list ya se recibió, enviar login inmediatamente
+    // Enviar login solo si el shard list ya se recibió.
+    // Si no, las credenciales quedan guardadas y PacketRouter.handleShardListResponse
+    // las enviará cuando el shard list llegue.
     if (tcpSession && tcpSession.packetRouter) {
         if (tcpSession.packetRouter.shardListReceived) {
             Logger.info('WebSocketLoginHandler: shardListReceived=true, sending login immediately', 'WebSocketLoginHandler');
-            tcpSession.packetRouter.sendAutoLogin();
+            tcpSession.packetRouter.sendLogin(username, password, serverId);
             if (session.wsSession) {
                 session.wsSession.sendStatus('LOGIN_SENT');
             }
-        } else if (tcpSession.handshakeComplete) {
-            Logger.info('WebSocketLoginHandler: handshake complete, login will be sent on shard list', 'WebSocketLoginHandler');
+        } else {
+            Logger.info('WebSocketLoginHandler: shardListReceived=false, credentials saved, waiting for shard list', 'WebSocketLoginHandler');
             if (session.wsSession) {
                 session.wsSession.sendStatus('LOGIN_PENDING_SHARD_LIST');
-            }
-        } else {
-            if (session.wsSession) {
-                session.wsSession.sendStatus('LOGIN_PENDING_HANDSHAKE');
             }
         }
     }
@@ -276,10 +274,120 @@ export function handleChatSendMessage(message, sessionId, tcpSession) {
     }
 }
 
+/**
+ * Maneja acciones de Stall desde el frontend
+ * STALL_CREATE: 0x70B1 (crear) + 0x70BA (mensaje)
+ * STALL_OPEN:   0x70BA type=5, state=1
+ * STALL_MODIFY: 0x70BA type=5, state=0
+ * STALL_CLOSE:  0x70B2
+ */
+export function handleStallAction(message, sessionId, tcpSession) {
+    if (!message.type || !message.type.startsWith('STALL_')) return;
+
+    Logger.info(`[STALL] Action: ${message.type}`, 'WebSocketLoginHandler');
+
+    try {
+        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        let p, encPacket;
+
+        switch (message.type) {
+            case 'STALL_CREATE': {
+                const title = message.title || 'Stall';
+                const greeting = message.greeting || 'Welcome!';
+
+                // 0x70B1 - Crear stall
+                p = new PacketWriter();
+                p.writeString(title);
+                encPacket = tcpSession.security.formatPacket(0x70B1, p.getBytes(), true);
+                tcpSession.send(encPacket);
+
+                // 0x70BA - Mensaje de bienvenida (type=6 = static)
+                p = new PacketWriter();
+                p.writeByte(0x06);
+                p.writeString(greeting);
+                encPacket = tcpSession.security.formatPacket(0x70BA, p.getBytes(), true);
+                tcpSession.send(encPacket);
+
+                Logger.info(`[STALL] Created: ${title}`, 'WebSocketLoginHandler');
+                break;
+            }
+            case 'STALL_OPEN': {
+                // 0x70BA type=5 (state), state=1 (open)
+                p = new PacketWriter();
+                p.writeByte(0x05);
+                p.writeByte(1);
+                p.writeWord(0);
+                encPacket = tcpSession.security.formatPacket(0x70BA, p.getBytes(), true);
+                tcpSession.send(encPacket);
+                Logger.info('[STALL] Opened', 'WebSocketLoginHandler');
+                break;
+            }
+            case 'STALL_MODIFY': {
+                // 0x70BA type=5 (state), state=0 (modify mode)
+                p = new PacketWriter();
+                p.writeByte(0x05);
+                p.writeByte(0);
+                p.writeWord(0);
+                encPacket = tcpSession.security.formatPacket(0x70BA, p.getBytes(), true);
+                tcpSession.send(encPacket);
+                Logger.info('[STALL] Modify mode', 'WebSocketLoginHandler');
+                break;
+            }
+            case 'STALL_CLOSE': {
+                // 0x70B2 - Cerrar stall
+                p = new PacketWriter();
+                encPacket = tcpSession.security.formatPacket(0x70B2, p.getBytes(), true);
+                tcpSession.send(encPacket);
+                Logger.info('[STALL] Closed', 'WebSocketLoginHandler');
+                break;
+            }
+        }
+    } catch (err) {
+        Logger.error(`[STALL] Error: ${err.message}`, 'WebSocketLoginHandler');
+    }
+}
+
+/**
+ * Maneja acciones de movimiento: SIT_DOWN (0x704F byte=1), GET_UP (0x704F byte=0)
+ */
+export function handleMovementAction(message, sessionId, tcpSession) {
+    if (!message.type || (!message.type.startsWith('SIT_') && !message.type.startsWith('GET_'))) return;
+
+    Logger.info(`[MOVE] Action: ${message.type}`, 'WebSocketLoginHandler');
+
+    try {
+        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        let p, encPacket;
+
+        switch (message.type) {
+            case 'SIT_DOWN': {
+                // 0x704F toggle sit/stand - probar sin encriptar
+                p = new PacketWriter();
+                encPacket = tcpSession.security.formatPacket(0x704F, p.getBytes(), false);
+                tcpSession.send(encPacket);
+                Logger.info('[MOVE] Sit toggle (0x704F unencrypted)', 'WebSocketLoginHandler');
+                break;
+            }
+            case 'GET_UP': {
+                // 0x704F toggle sit/stand - probar sin encriptar
+                p = new PacketWriter();
+                encPacket = tcpSession.security.formatPacket(0x704F, p.getBytes(), false);
+                tcpSession.send(encPacket);
+                Logger.info('[MOVE] Get up toggle (0x704F unencrypted)', 'WebSocketLoginHandler');
+                break;
+            }
+        }
+    } catch (err) {
+        Logger.error(`[MOVE] Error: ${err.message}`, 'WebSocketLoginHandler');
+    }
+}
+
 export default {
     handleLoginMessage,
     handleCharacterSelectMessage,
     handleCharacterListRequestMessage,
     handleDisconnectCharacterMessage,
     handleChatSendMessage,
+    handleStallAction,
+    handleMovementAction,
 };

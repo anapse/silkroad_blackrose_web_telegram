@@ -7,6 +7,8 @@ import {
   handleCharacterListRequestMessage,
   handleDisconnectCharacterMessage,
   handleChatSendMessage,
+  handleStallAction,
+  handleMovementAction,
 } from '../../shared/WebSocketLoginHandler.js';
 
 class WebSocketSession {
@@ -118,6 +120,24 @@ class WebSocketSession {
           const session = sessionManager.getSession(this.sessionId);
           if (session && session.tcpSession) {
             handleChatSendMessage(parsed, this.sessionId, session.tcpSession);
+          }
+          return;
+        }
+
+        // Manejar acciones de Stall (STALL_CREATE, STALL_OPEN, STALL_MODIFY, STALL_CLOSE)
+        if (parsed.type && parsed.type.startsWith('STALL_')) {
+          const session = sessionManager.getSession(this.sessionId);
+          if (session && session.tcpSession) {
+            handleStallAction(parsed, this.sessionId, session.tcpSession);
+          }
+          return;
+        }
+
+        // Manejar acciones de movimiento (SIT_DOWN, GET_UP)
+        if (parsed.type === 'SIT_DOWN' || parsed.type === 'GET_UP') {
+          const session = sessionManager.getSession(this.sessionId);
+          if (session && session.tcpSession) {
+            handleMovementAction(parsed, this.sessionId, session.tcpSession);
           }
           return;
         }

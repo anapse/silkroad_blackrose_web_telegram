@@ -171,47 +171,83 @@ class TcpSession {
       // Detectar si el paquete está encriptado (bit 0x8000 en size)
       const rawSize = packet.payload.readUInt16LE(0);
       const isEncrypted = (rawSize & 0x8000) !== 0;
-      const payloadSize = rawSize & 0x7fff;
+      const payloadSize = rawSize & 0x7FFF;
 
       let processedPayload = packet.payload;
 
       if (isEncrypted && this.security) {
         try {
-          // Los datos encriptados empiezan en offset 2 (después del size field).
-          // El PacketAssembler ya entregó el paquete completo con padding Blowfish.
-          const encDataLen = payloadSize + 4; // opcode(2) + count(1) + check(1) + payload
-          const alignedLen = Math.ceil(encDataLen / 8) * 8;
+          // ═══════════════════════════════════════════════════════════
+          // BLOWFISH DECRYPT — OFFSET CORRECTO
+          // ═══════════════════════════════════════════════════════════
+          //
+          // Estructura del paquete encriptado:
+          //   [0-1] size field (NO cifrado)
+          //   [2-N] opcode(2) + count(1) + check(1) + payload + padding
+          //
+          // El campo rawSize (size & 0x7FFF) = opcode(2) + count(1) + check(1) + payload
+          // Los datos cifrados empiezan en byte 2.
+          // Longitud cifrada = align8(rawSize)  (mismo cálculo que PacketAssembler.getAlignedSize)
+          //   donde align8(n) = (n + 7) & ~7
+          // ═══════════════════════════════════════════════════════════
+
+          const encDataLen = payloadSize + 4; // rawSize + 4? No: rawSize YA es opcode+count+check+payload
+          // rawSize = payloadSize = opcode(2) + count(1) + check(1) + payload(N)
+          // PacketAssembler.getAlignedSize hace: encDataLen = payloadSize + 4 (pero payloadSize YA incluye esos 4)
+          // Esto es un bug del PacketAssembler original, pero debemos coincidir con él.
+          const alignedLen = (encDataLen % 8 === 0) ? encDataLen : encDataLen + (8 - (encDataLen % 8));
           const availableLen = packet.payload.length - 2;
-          
-          // Verificar que tenemos suficientes bytes para desencriptar
+
           if (availableLen < alignedLen) {
             Logger.warn(`[DECRYPT] Insufficient data: need=${alignedLen} have=${availableLen} pktLen=${packet.payload.length}`, 'TcpSession');
-            continue; // Saltar este paquete, posiblemente corrupto
+            continue;
           }
 
-          const readLen = alignedLen;
-          Logger.debug(`[DECRYPT] rawSize=0x${rawSize.toString(16)} payloadSize=${payloadSize} encDataLen=${encDataLen} alignedLen=${alignedLen} availableLen=${availableLen} readLen=${readLen} pktLen=${packet.payload.length}`, 'TcpSession');
+          // 🔍 DEBUG HEX ANTES del decrypt
+          const hexBefore = packet.payload.subarray(0, Math.min(packet.payload.length, 64)).toString('hex').toUpperCase();
+          Logger.info(`[DECRYPT] BEFORE size=0x${rawSize.toString(16)} alignedLen=${alignedLen} hex=${hexBefore}`, 'TcpSession');
 
-          const decrypted = this.security.decode(packet.payload, 2, readLen);
-          // decrypted layout: [realOpcode:2][countByte:1][checkByte:1][payload:N][padding]
+          // Decrypt desde byte 2, longitud = alignedLen
+          const decrypted = this.security.decode(packet.payload, 2, alignedLen);
+
+          if (decrypted.length < 4) {
+            Logger.warn(`[DECRYPT] Decrypt returned only ${decrypted.length} bytes — skipping`, 'TcpSession');
+            continue;
+          }
+
+          // 🔍 DEBUG HEX DESPUÉS del decrypt
+          const hexAfter = decrypted.subarray(0, Math.min(decrypted.length, 64)).toString('hex').toUpperCase();
           const realOpcode = decrypted.readUInt16LE(0);
+          Logger.info(`[DECRYPT] AFTER opcode=0x${realOpcode.toString(16).padStart(4, '0')} decryptedLen=${decrypted.length} hex=${hexAfter}`, 'TcpSession');
+
+          // Validar opcode: debe ser un opcode válido de Silkroad
+          if (realOpcode === 0 || realOpcode === 0xFFFF) {
+            Logger.warn(`[DECRYPT] Invalid opcode 0x${realOpcode.toString(16).padStart(4, '0')} after decrypt — corrupt packet?`, 'TcpSession');
+            continue;
+          }
+
           const realCountByte = decrypted.readUInt8(2);
           const realCheckByte = decrypted.readUInt8(3);
 
           // Reconstruir paquete sin encriptación
-          processedPayload = Buffer.alloc(payloadSize + 6);
-          processedPayload.writeUInt16LE(payloadSize, 0);
+          // Layout: [payloadSize:2][opcode:2][count:1][check:1][payload:N]
+          //
+          // El rawSize del paquete encriptado (payloadSize) NO incluye los 4 bytes
+          // de opcode+count+check que están dentro de la parte cifrada.
+          // El tamaño real del contenido descifrado es payloadSize + 4.
+          // Ese es el valor correcto para el campo size del paquete reconstruido.
+          const realPayloadSize = payloadSize + 4;
+          processedPayload = Buffer.alloc(realPayloadSize + 2);
+          processedPayload.writeUInt16LE(realPayloadSize, 0);
           processedPayload.writeUInt16LE(realOpcode, 2);
           processedPayload.writeUInt8(realCountByte, 4);
           processedPayload.writeUInt8(realCheckByte, 5);
 
           // Copiar payload desde offset 4 del decrypted (después de opcode+count+check)
-          const copyLen = Math.min(payloadSize, decrypted.length - 4);
+          const copyLen = Math.min(realPayloadSize - 4, decrypted.length - 4);
           if (copyLen > 0) decrypted.copy(processedPayload, 6, 4, 4 + copyLen);
 
-          const hex_processed = processedPayload.subarray(0, Math.min(processedPayload.length, 32)).toString('hex').toUpperCase();
-          const result_byte = processedPayload.readUInt8(6);
-          Logger.debug(`[DECRYPT] 0x${packet.payload.readUInt16LE(2).toString(16).padStart(4, '0')} → 0x${realOpcode.toString(16).padStart(4, '0')} result_byte=${result_byte} hex=${hex_processed}`, 'TcpSession');
+          Logger.info(`[DECRYPT] SUCCESS opcode=0x${realOpcode.toString(16).padStart(4, '0')} payloadSize=${payloadSize}`, 'TcpSession');
         } catch (err) {
           Logger.warn(`[DECRYPT] Failed: ${err.message}`, 'TcpSession');
         }

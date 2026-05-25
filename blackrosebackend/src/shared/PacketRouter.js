@@ -3,6 +3,8 @@ import { parseOpcode, getOpcodeDefinition } from './opcodes/OPCODE_DEFINITIONS.j
 import { LoginHandler } from './handlers/LoginHandler.js';
 import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
 import { OPCODE_LOGIN_REQUEST, GAME_VERSION, LOCALE_VIETNAM } from '../config/gameConstants.js';
+import { parseInventory, parseInventoryMovement, parseInventoryUpdate, parseDurabilityUpdate, parseCapacityUpdate, StorageAccumulator, InventoryMovementType, parseItem } from './InventoryParser.js';
+import { getTypeID2 } from './ItemTypeDB.js';
 
 export default class PacketRouter {
     constructor(tcpSession, session) {
@@ -13,7 +15,6 @@ export default class PacketRouter {
         this.shardListRequested = false;
         this.shardListCount = 0;
         this.shardListReceived = false;
-        this.autoLoginSent = false;
         this.captchaReplySent = false;
         this.isAgent = false; // true cuando estamos conectados al Agent (no Gateway)
 
@@ -25,6 +26,13 @@ export default class PacketRouter {
         // Acumulador de character data (0x3013) como en xBot
         this._charDataBuffer = null;
         this._pendingPlayerInfo = null; // stats parciales, posición llega en 0x3020
+
+        // Acumulador de storage/bodega (0x3047 → 0x3049 → 0x304A)
+        this._storageAccumulator = new StorageAccumulator();
+
+        // Inventario actual del jugador (mapa slot → item)
+        this.inventory = [];
+        this.inventoryAvatar = [];
 
         this.handlers = {
             '0x5000': this.handleHandshake.bind(this),
@@ -52,6 +60,14 @@ export default class PacketRouter {
             '0x3026': this.handleChat.bind(this),
             '0x059c': this.handleUnknown059c.bind(this),
             '0xf54e': this.handleUnknownF54e.bind(this),
+            // Inventory handlers (xBot pattern)
+            '0xb034': this.handleInventoryMovement.bind(this),
+            '0x3040': this.handleInventoryUpdate.bind(this),
+            '0x3052': this.handleDurabilityUpdate.bind(this),
+            '0x3092': this.handleCapacityUpdate.bind(this),
+            '0x3047': this.handleStorageBegin.bind(this),
+            '0x3049': this.handleStorageData.bind(this),
+            '0x304a': this.handleStorageEnd.bind(this),
         };
     }
 
@@ -245,8 +261,15 @@ export default class PacketRouter {
             this.session.wsSession.sendStatus('SERVER_LIST_RECEIVED', { detail });
         }
 
-        // Login automático solo si hay credenciales
-        this.sendAutoLogin();
+        // Si el shard list se completó y hay credenciales guardadas (enviadas por el frontend),
+        // enviar el login ahora. El frontend ya pidió loguearse pero el shard list no había llegado.
+        if (this.shardListReceived && this.session && this.session.loginCredentials) {
+            const { username, password, serverId } = this.session.loginCredentials;
+            if (username && password) {
+                Logger.info('PacketRouter: shard list complete with pending credentials, sending login now', 'PacketRouter');
+                this.sendLogin(username, password, serverId);
+            }
+        }
     }
 
     handleCaptchaRequest(rawPacket, packetObj) {
@@ -292,20 +315,48 @@ export default class PacketRouter {
 
         try {
             const PacketReader = require('../gamegateway/packet/PacketReader');
-            // El payload real empieza en offset 6 (size 2 + opcode 2 + securityCount 1 + securityCRC 1)
+            // El payload real empieza en offset 6 del rawPacket (size 2 + opcode 2 + securityCount 1 + securityCRC 1)
             const payload = rawPacket.slice(6);
 
-            // Leer primer byte directamente (result)
+            // ═══════════════════════════════════════════════════════════
+            // ESTRUCTURA REAL DEL PAYLOAD 0xA102 (desde offset 6):
+            //
+            //   [1] result (uint8)           — 0=fail, 1=success
+            //   [4] loginId / token (uint32) — usado para reconectar al Agent
+            //   [2] agentIP_len (uint16)     — longitud del string IP
+            //   [N] agentIP (ASCII string)   — ej. "26.74.212.246"
+            //   [2] agentPort (uint16)       — puerto del AgentServer
+            //
+            // Ejemplo real decryptado (offset 6 en adelante):
+            //   01 34000000 0D00 32362E37342E3231322E323436 0C3E
+            //   ↑result  ↑token=52  ↑len=13 ↑"26.74.212.246"  ↑port=15884
+            // ═══════════════════════════════════════════════════════════
+
+            if (payload.length < 1) {
+                Logger.warn(`[A102] Payload vacío — no se puede parsear`, 'PacketRouter');
+                this.session.wsSession.sendStatus('LOGIN_FAILED', { error: 'Empty payload' });
+                this.session.wsSession.sendEvent('❌ Login fallido: payload vacío');
+                return;
+            }
+
             const result = payload.readUInt8(0);
-            Logger.info(`[A102] result=${result}`, 'PacketRouter');
+            Logger.info(`[A102] result=${result} payloadLen=${payload.length}`, 'PacketRouter');
 
             if (result === 1) {
-                // Login exitoso formato xBot: result(1) + token(4) + agentIP(string) + agentPort(word)
-                // Payload hex: 01 22 00 00 00 0D 00 32 36 2E 37 34 2E 32 31 32 2E 32 34 36 0C 3E
-                //              ↑result ↑──token──↑ ↑─len─↑ ↑───────agent IP──────────────↑ ↑port↑
-                let pos = 1;
+                // Validar que el payload tenga al menos 9 bytes (result 1 + token 4 + ipLen 2 + port 2 mínimo)
+                if (payload.length < 9) {
+                    throw new Error(`Payload demasiado corto para login exitoso: ${payload.length} bytes`);
+                }
+
+                let pos = 1; // saltar result
                 const token = payload.readUInt32LE(pos); pos += 4;
                 const agentHostLen = payload.readUInt16LE(pos); pos += 2;
+
+                // Validar que agentHostLen sea razonable y quepa en el payload
+                if (agentHostLen === 0 || agentHostLen > 100 || pos + agentHostLen + 2 > payload.length) {
+                    throw new Error(`agentHostLen inválido: ${agentHostLen} (payloadLen=${payload.length}, pos=${pos})`);
+                }
+
                 const agentHost = payload.toString('utf8', pos, pos + agentHostLen); pos += agentHostLen;
                 const agentPort = payload.readUInt16LE(pos); pos += 2;
 
@@ -359,8 +410,13 @@ export default class PacketRouter {
             }
         } catch (err) {
             Logger.error(`PacketRouter: Error parsing 0xA102`, err, 'PacketRouter');
-            this.session.wsSession.sendStatus('LOGIN_FAILED', { error: 'Parse error: ' + err.message });
-            this.session.wsSession.sendEvent(`❌ Login fallido: error al parsear respuesta`);
+            // Enviar error al frontend
+            try {
+                if (this.session?.wsSession) {
+                    this.session.wsSession.sendStatus('LOGIN_FAILED', { error: 'Parse error: ' + err.message });
+                    this.session.wsSession.sendEvent(`❌ Login fallido: error al parsear respuesta`);
+                }
+            } catch (_) { /* ignorar errores al enviar */ }
         }
     }
 
@@ -400,23 +456,11 @@ export default class PacketRouter {
     }
 
     /**
-     * Envía el login 0x6102 automáticamente si hay credenciales guardadas
+     * Envía el login 0x6102 al servidor de juego.
+     * Solo se llama cuando el frontend envía { type: "LOGIN" }.
      */
-    sendAutoLogin() {
-        if (this.autoLoginSent || this.isAgent) return;
-        if (!this.session || !this.session.loginCredentials) {
-            Logger.warn('PacketRouter: cannot auto-login, no credentials', 'PacketRouter');
-            return;
-        }
-
-        const { username, password, serverId } = this.session.loginCredentials;
-        if (!username || !password) {
-            Logger.warn('PacketRouter: incomplete credentials for auto-login', 'PacketRouter');
-            return;
-        }
-
-        this.autoLoginSent = true;
-        Logger.info(`PacketRouter: auto-sending LOGIN_REQUEST (0x6102) for user=${username}`, 'PacketRouter');
+    sendLogin(username, password, serverId) {
+        Logger.info(`PacketRouter: sending LOGIN_REQUEST (0x6102) for user=${username}`, 'PacketRouter');
         const loginPacket = LoginRequestBuilder.buildLoginRequest(username, password, serverId);
         const rawPayload = loginPacket.payload || loginPacket;
         console.log('[LOGIN HEX]', Buffer.from(rawPayload).toString('hex'));
@@ -427,7 +471,7 @@ export default class PacketRouter {
         this.tcpSession.send(encryptedPacket);
         if (this.session.wsSession) {
             this.session.wsSession.sendStatus('LOGIN_SENT');
-            this.session.wsSession.sendEvent('📤 Login automático enviado');
+            this.session.wsSession.sendEvent('📤 Login enviado al servidor de juego');
         }
     }
 
@@ -503,97 +547,245 @@ export default class PacketRouter {
     }
 
     /**
-     * 0x3013 - CHARACTER_DATA: Acumula datos del personaje
+     * 0x3013 - CHARACTER_DATA: Fragmentos de datos del personaje.
+     * SOLO acumulamos aquí. El parseo completo se hace en handleCharDataEnd (0x34A6).
      */
     handleCharData(rawPacket, packetObj) {
         if (!this._charDataBuffer) this._charDataBuffer = Buffer.alloc(0);
+
+        // ═══════════════════════════════════════════════════════════════
+        // CADA fragment 0x3013 es un paquete Silkroad COMPLETO
+        // que YA fue desencriptado en TcpSession.handleIncomingData().
+        //
+        // rawPacket YA está desencriptado y tiene estructura:
+        //   [0-1] payloadSize (size & 0x7FFF del paquete original)
+        //   [2-3] opcode (0x3013)
+        //   [4]   securityCount
+        //   [5]   securityCRC
+        //   [6-N] payload limpio (datos del personaje)
+        //
+        // Solo hacemos slice(6) para obtener el payload limpio.
+        // ═══════════════════════════════════════════════════════════════
+
         const payload = rawPacket.slice(6);
+
+        // 🔍 DEBUG: log del primer fragment para verificar
+        if (this._charDataBuffer.length === 0) {
+            console.log(' ');
+            console.log('═══════════════════════════════════════════════════');
+            console.log(`🔬 [CHAR_DATA] First 0x3013 fragment — ${payload.length} bytes of payload`);
+            console.log(`   rawPacket size=${rawPacket.length} opcode=${packetObj.opcode}`);
+            console.log(`   Payload first 64 bytes hex:`);
+            console.log('   ' + payload.subarray(0, Math.min(64, payload.length)).toString('hex'));
+            console.log('═══════════════════════════════════════════════════');
+            console.log(' ');
+        }
+
         this._charDataBuffer = Buffer.concat([this._charDataBuffer, payload]);
-        Logger.debug(`[CHAR_DATA] Accumulated ${this._charDataBuffer.length} bytes`, 'PacketRouter');
+        Logger.info(`[CHAR_DATA] 0x3013 fragment — accumulated ${this._charDataBuffer.length} bytes total`, 'PacketRouter');
     }
 
     /**
-     * 0x34A6 - CHARACTER_DATA_END: Procesa datos acumulados y extrae info del jugador
-     * Estructura (xBot CharacterDataEnd):
-     *   serverTime(4) + refObjId(4) + scale(1) + level(1) + levelMax(1) +
-     *   exp(8) + SPExp(4) + gold(8) + SP(4) + statPoints(2) + berserkPoints(1) +
-     *   gatheredExp(4) + HP(4) + MP(4) + ...muchos campos... +
-     *   AL FINAL: uniqueID(4) + region(2) + X(float4) + Z(float4) + Y(float4) + angle(2)
-     */
+         * 0x34A6 - CHARACTER_DATA_END: Buffer completo. Parseamos stats + inventario AQUÍ.
+         * Acumulamos también el payload del 0x34A6 (puede traer datos extra en algunos servers).
+         */
     handleCharDataEnd(rawPacket, packetObj) {
-        if (!this._charDataBuffer || this._charDataBuffer.length < 10) {
-            Logger.warn(`[CHAR_DATA] No accumulated data to parse`, 'PacketRouter');
+        // Acumular payload del 0x34A6 (por si trae datos adicionales)
+        const endPayload = rawPacket.slice(6);
+        if (endPayload.length > 0 && this._charDataBuffer) {
+            Logger.info(`[CHAR_DATA] 0x34A6 payload has ${endPayload.length} bytes — appending to buffer`, 'PacketRouter');
+            this._charDataBuffer = Buffer.concat([this._charDataBuffer, endPayload]);
+        }
+
+        if (!this._charDataBuffer || this._charDataBuffer.length < 62) {
+            Logger.warn(`[CHAR_DATA] Buffer insuficiente al final (${this._charDataBuffer?.length || 0} bytes)`, 'PacketRouter');
+            this._charDataBuffer = null;
             return;
         }
         const data = this._charDataBuffer;
-        Logger.info(`[CHAR_DATA] End — parsing ${data.length} bytes`, 'PacketRouter');
+        Logger.info(`[CHAR_DATA] End — parseando ${data.length} bytes del buffer completo`, 'PacketRouter');
+
+        // 🔍 DUMP: primeros 160 bytes del buffer crudo en hex para diagnóstico
+        console.log(' ');
+        console.log('═══════════════════════════════════════════════════');
+        console.log(`🔬 [CHAR_DATA] Raw buffer (${data.length} bytes total) — first 160 bytes hex:`);
+        console.log('   ' + data.subarray(0, Math.min(160, data.length)).toString('hex'));
+        console.log('═══════════════════════════════════════════════════');
+        console.log(' ');
 
         try {
             let pos = 0;
-            const serverTime = data.readUInt32LE(pos); pos += 4;
-            const refObjId = data.readUInt32LE(pos); pos += 4;
+
+            // ═══════════════════════════════════════════════════════════
+            // ESTRUCTURA DE CharacterData — BASADO EN EL HEX REAL:
+            //
+            // Hex: 5ae1b6c7 82070000 445555 bb2203000000000000 2b000000
+            //       ↑timestamp ↑modelId ↑scl/lv/max ↑exp(8)      ↑skillExp
+            //       b075c50200000000 85230b00 00000000 0000628c 00002c42
+            //       ↑gold(8)         ↑sp      ↑statPts ↑berserk ↑expChunk
+            //       00000100 00000000 00000000 57250100 00000000
+            //       ↑hp       ↑mp      ↑auto/dPK ↑totalPK  ↑pkPenalty
+            //       440e0000 00000000 00000000 00003400 00000001
+            //       ↑serverCap+extra ↑maxSlots ↑itemCount ↑slot0 ↑id...
+            //
+            // VSRO SÍ tiene serverTimestamp (4 bytes) al inicio.
+            // ═══════════════════════════════════════════════════════════
+
+            console.log(`📏 [CHAR_DATA] Parsing stats from offset ${pos}...`);
+
+            // [0] serverTimestamp (uint32) — VSRO SÍ lo tiene
+            pos += 4;
+            console.log(`   +4 serverTimestamp (skip)`);
+
+            // [1] modelId (uint32)
+            const modelId = data.readUInt32LE(pos); pos += 4;
+            console.log(`   +4 modelId=${modelId} (0x${modelId.toString(16)})`);
+
+            // [2-4] scale, level, maxLevel
             const scale = data.readUInt8(pos); pos += 1;
             const level = data.readUInt8(pos); pos += 1;
             const levelMax = data.readUInt8(pos); pos += 1;
-            pos += 8; // exp (uint64)
-            pos += 4; // spExp
-            pos += 8; // gold (uint64)
-            pos += 4; // skillPoints
-            pos += 2; // statPoints
-            pos += 1; // berserkPoints
-            pos += 4; // gatheredExpPoint
+            console.log(`   +3 scale=${scale} level=${level} maxLevel=${levelMax}`);
+
+            // [5] exp (uint64)
+            pos += 8;
+            // [6] skillExp (uint32)
+            pos += 4;
+            // [7] gold (uint64)
+            const gold = Number(data.readBigUInt64LE(pos)); pos += 8;
+            // [8] skillPoints (uint32)
+            const sp = data.readUInt32LE(pos); pos += 4;
+            // [9] statPoints (uint16)
+            pos += 2;
+            // [10] berserkPoints (uint8)
+            pos += 1;
+            // [11] expChunk (uint32)
+            pos += 4;
+            // [12] health (int32)
             const hp = data.readUInt32LE(pos); pos += 4;
+            // [13] mana (int32)
             const mp = data.readUInt32LE(pos); pos += 4;
+            // [14] autoInvest (uint8)
+            pos += 1;
+            // [15] dailyPK (uint8)
+            pos += 1;
+            // [16] totalPK (uint16)
+            pos += 2;
+            // [17] pkPenalty (uint32)
+            pos += 4;
+            // [18] berserkLevel (uint8) — xBot: character.BerserkLevel
+            pos += 1;
+            // [19] pvpCapeType (uint8) — xBot: character.PVPCapeType
+            pos += 1;
 
-            Logger.info(`[CHAR_DATA] Stats parsed — Lv=${level} HP=${hp} MP=${mp} refObjId=${refObjId}`, 'PacketRouter');
+            console.log(`   stats end at offset=${pos}`);
 
-            // Extraer playerName del final del buffer (formato xBot: ...uniqueID(4) + region(2) + X(4) + Z(4) + Y(4) + angle(2) + ... + name(ascii))
-            let playerName = '';
-            try {
-                // El nombre está cerca del final, buscamos el string "testing" o similar
-                // Estructura xBot: ...al final: name(ascii) + jobName(ascii) + jobType(1) + ...
-                // Buscar desde el final hacia atrás un string ASCII válido (len 4-16)
-                for (let i = data.length - 20; i > data.length - 200 && i > 0; i--) {
-                    const nameLen = data.readUInt16LE(i);
-                    if (nameLen >= 4 && nameLen <= 16 && i + 2 + nameLen <= data.length) {
-                        let valid = true;
-                        for (let j = 0; j < nameLen; j++) {
-                            const c = data.readUInt8(i + 2 + j);
-                            if (c < 0x20 || c > 0x7E) { valid = false; break; }
-                        }
-                        if (valid) {
-                            playerName = data.toString('ascii', i + 2, i + 2 + nameLen);
-                            break;
-                        }
-                    }
+            // 🔍 DEBUG: scanear bytes pre-inventory para encontrar maxSlots/itemCount
+            // Buscar un byte razonable (30-120) seguido de un byte (1-40) como posibles maxSlots+itemCount
+            console.log(`   Scanning for inventory signature (maxSlots 30-120, itemCount 1-40)...`);
+            for (let scan = pos; scan < Math.min(pos + 30, data.length - 1); scan++) {
+                const candidateSlots = data.readUInt8(scan);
+                const candidateCount = data.readUInt8(scan + 1);
+                if (candidateSlots >= 30 && candidateSlots <= 120 && candidateCount >= 1 && candidateCount <= 40) {
+                    console.log(`   → CANDIDATE at offset ${scan}: maxSlots=${candidateSlots} itemCount=${candidateCount} hex=${data.subarray(scan, scan + 6).toString('hex')}`);
                 }
-            } catch (e) { /* ignorar */ }
-            Logger.info(`[CHAR_DATA] PlayerName=${playerName}`, 'PacketRouter');
+            }
+            const preInvHex = data.subarray(pos, Math.min(pos + 16, data.length)).toString('hex');
+            console.log(`   Bytes at current offset ${pos}: ${preInvHex}`);
 
-            // Guardar stats parciales — posición llegará en 0x3020
-            this._pendingPlayerInfo = { level, hp, mp, refObjId, scale, playerName };
+            // ─── INVENTARIO ───
+            const maxSlots = data.readUInt8(pos); pos += 1;
+            const itemCount = data.readUInt8(pos); pos += 1;
+            console.log(`   INVENTORY: maxSlots=${maxSlots} itemCount=${itemCount} at offset=${pos}`);
+
+            Logger.info(`[CHAR_DATA] Stats: Lv=${level} HP=${hp} MP=${mp} gold=${gold} slots=${maxSlots} itemCount=${itemCount}`, 'PacketRouter');
+
+            if (itemCount > 0) {
+                console.log(`   Next ${Math.min(80, data.length - pos)} bytes from offset ${pos}:`);
+                console.log('   ' + data.subarray(pos, Math.min(pos + 80, data.length)).toString('hex'));
+            }
+            console.log(' ');
+
+            // Parsear items usando parseItem de InventoryParser (parseo robusto)
+            const inventory = [];
+            const seenSlots = new Set();
+            let rejectedCount = 0;
+            let rejectedIds = [];
+            for (let i = 0; i < itemCount && pos < data.length; i++) {
+                if (pos + 1 > data.length) break;
+                const slot = data.readUInt8(pos); pos += 1;
+                const itemStartOffset = pos;
+
+                // 🔍 Log item-level: mostrar hex del slot + 20 bytes siguientes
+                const itemHexPreview = data.subarray(itemStartOffset - 1, Math.min(itemStartOffset + 20, data.length)).toString('hex');
+
+                const { item: parsedItem, offset: newPos } = parseItem(data, pos);
+                const bytesConsumed = newPos - pos;
+                pos = newPos;
+
+                // 🔍 Log detallado de cada item parseado
+                const typeId2 = parsedItem ? (getTypeID2(parsedItem.id) || 0) : 0;
+                const idHex = parsedItem?.id ? '0x' + parsedItem.id.toString(16).padStart(8, '0') : 'N/A';
+                console.log(`   [ITEM ${i}] slot=${slot} id=${parsedItem?.id} (${idHex}) typeId2=${typeId2} consumed=${bytesConsumed}B hex_preview=${itemHexPreview}`);
+
+                // Validar: slot válido, no duplicado
+                if (parsedItem &&
+                    parsedItem.id > 0 &&
+                    parsedItem.id < 1000000 &&
+                    slot >= 0 &&
+                    slot < maxSlots + 13 &&
+                    !seenSlots.has(slot)) {
+
+                    seenSlots.add(slot);
+                    inventory.push({
+                        slot,
+                        id: parsedItem.id,
+                        plus: parsedItem.plus || 0,
+                        variance: parsedItem.variance || 0,
+                        durability: parsedItem.durability || 0,
+                        quantity: parsedItem.quantity || 1,
+                    });
+                } else {
+                    rejectedCount++;
+                    if (parsedItem?.id && parsedItem.id >= 1000000) {
+                        rejectedIds.push(idHex);
+                    }
+                    console.log(`   [ITEM ${i}] ⚠️ REJECTED: idValid=${parsedItem?.id > 0 && parsedItem?.id < 1000000} slotValid=${slot >= 0 && slot < maxSlots + 13} dup=${seenSlots.has(slot)}`);
+                }
+            }
+
+            if (rejectedCount > 0) {
+                console.warn(`⚠️  [CHAR_DATA] ${rejectedCount}/${itemCount} items rechazados. IDs inválidos: [${rejectedIds.join(', ')}]`);
+            }
+            console.log(`✅ [CHAR_DATA] ${inventory.length}/${itemCount} items aceptados para enviar al frontend`);
+            console.log(' ');
+
+            // Guardar inventario y enviar al frontend
+            this.inventory = inventory;
+
+            // Guardar stats para usar en handlePositionUpdate (0x3020)
+            this._pendingPlayerInfo = {
+                level,
+                hp,
+                mp,
+                refObjId: modelId,
+                playerName: 'Player',
+            };
 
             if (this.session && this.session.wsSession) {
-                this.session.wsSession.sendEvent(`📊 Stats: Lv${level} HP=${hp} MP=${mp}`, {
-                    type: 'CHAR_STATS',
-                    level, hp, mp, refObjId, scale,
+                const goldToSend = gold || 0;
+                Logger.info(`[CHAR_DATA] Sending INVENTORY_DATA to frontend: ${inventory.length} items, maxSlots=${maxSlots}`, 'PacketRouter');
+                this.session.wsSession.sendEvent(`📦 Inventario: ${inventory.length} items`, {
+                    type: 'INVENTORY_DATA',
+                    inventory,
+                    inventoryAvatar: [],
+                    maxSlots,
+                    gold: goldToSend,
                 });
             }
-
-            // Enviar 0x3012 (CLIENT_CHARACTER_CONFIRM_SPAWN) después de char data.
-            // Según bot/Clases/opcode.cs: CLIENT_CHARACTER_CONFIRM_SPAWN = 0x3012
-            // 0x34B5/0x34B6 son TELEPORT_READY, no spawn.
-            try {
-                const confirmSpawn = this.tcpSession.security.formatPacket(0x3012, Buffer.alloc(0), true);
-                this.tcpSession.send(confirmSpawn);
-                Logger.info(`[SPAWN] Sent CLIENT_CHARACTER_CONFIRM_SPAWN (0x3012)`, 'PacketRouter');
-            } catch (e) {
-                Logger.error(`[SPAWN] Error sending 0x3012: ${e.message}`, 'PacketRouter');
-            }
         } catch (e) {
-            Logger.error(`[CHAR_DATA] Parse error: ${e.message}`, 'PacketRouter');
+            Logger.warn(`[CHAR_DATA] 0x3013 parse error: ${e.message}`, 'PacketRouter');
         }
-        this._charDataBuffer = null;
     }
 
     /**
@@ -627,6 +819,11 @@ export default class PacketRouter {
         Logger.info(`[POS] 0x3020 payload=${hex} (${payload.length}B)`, 'PacketRouter');
 
         if (payload.length >= 8) {
+            // Formato VSRO 0x3020 (8 bytes):
+            // [2] region (uint16 LE)
+            // [2] posX (uint16 LE) — coordenada X en mundo
+            // [2] posY (uint16 LE) — coordenada Y en mundo
+            // [2] posZ (uint16 LE) — coordenada Z en mundo
             const region = payload.readUInt16LE(0);
             const posX = payload.readUInt16LE(2);
             const posY = payload.readUInt16LE(4);
@@ -642,7 +839,7 @@ export default class PacketRouter {
             const playerName = info.playerName || 'Player';
 
             if (this.session && this.session.wsSession) {
-                this.session.wsSession.sendEvent(`🌟 Jugador en mundo: Lv${level} HP=${hp} MP=${mp} Region=${region} (${posX},${posY},${posZ})`, {
+                this.session.wsSession.sendEvent(`🌟 Jugador en mundo: Lv${level} HP=${hp} MP=${mp} Region=${region} (${posX},${posY})`, {
                     type: 'PLAYER_SPAWNED',
                     region, posX, posY, posZ,
                     level, hp, mp, refObjId, playerName,
@@ -653,10 +850,6 @@ export default class PacketRouter {
                 });
             }
         }
-
-        // NO enviar 0x34C5 - este servidor no usa este protocolo.
-        // El 0x3020 es solo posición, no espera respuesta.
-        this._pendingPlayerInfo = null;
 
         this._pendingPlayerInfo = null;
     }
@@ -780,6 +973,14 @@ export default class PacketRouter {
 
             Logger.info(`[CHAT] type=${chatType} from=${charname}: ${message}`, 'PacketRouter');
 
+            // Si tenemos el playerName y el uniqueID coincide, usar el nombre real
+            if (this._pendingPlayerInfo && this._pendingPlayerInfo.playerName && uniqueID) {
+                // El refObjId del jugador es su uniqueID también
+                if (uniqueID === this._pendingPlayerInfo.refObjId) {
+                    charname = this._pendingPlayerInfo.playerName;
+                }
+            }
+
             if (this.session && this.session.wsSession) {
                 this.session.wsSession.sendEvent(`💬 ${charname}: ${message}`, {
                     type: 'CHAT_MESSAGE',
@@ -814,7 +1015,8 @@ export default class PacketRouter {
 
     // NOTA: handleLoginResponse (0xa102) está definido arriba.
     // El duplicado que llamaba a processCharacterList fue eliminado.
-    // sendLoginAfterHandshake eliminado — su lógica está unificada en sendAutoLogin()
+    // sendAutoLogin fue reemplazado por sendLogin(username, password, serverId)
+    // que solo se invoca desde WebSocketLoginHandler cuando el frontend lo solicita.
 
     handleCharacterList(rawPacket, packetObj) {
         Logger.info(`PacketRouter: CHARACTER_LIST received opcode=${packetObj.opcode}`, 'PacketRouter');
@@ -887,6 +1089,206 @@ export default class PacketRouter {
                 this.session.wsSession.sendEvent('❌ Error al obtener lista de personajes');
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // INVENTORY HANDLERS (xBot pattern)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * 0xB034 - SERVER_INVENTORY_ITEM_MOVEMENT: Movimiento de items en inventario.
+     */
+    handleInventoryMovement(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        const result = parseInventoryMovement(payload);
+        if (!result) {
+            Logger.warn(`[INV] Failed to parse inventory movement`, 'PacketRouter');
+            return;
+        }
+
+        if (result.result !== 1) {
+            Logger.warn(`[INV] Movement failed result=${result.result}`, 'PacketRouter');
+            return;
+        }
+
+        const typeName = Object.keys(InventoryMovementType).find(
+            k => InventoryMovementType[k] === result.type
+        ) || `UNKNOWN_${result.type}`;
+
+        Logger.info(`[INV] Movement type=${typeName}(${result.type})`, 'PacketRouter');
+
+        // Actualizar inventario local según el tipo de movimiento
+        switch (result.type) {
+            case InventoryMovementType.InventoryToInventory: {
+                // Swap entre slots
+                const src = this.inventory[result.data.slotSrc];
+                const dst = this.inventory[result.data.slotDst];
+                if (result.data.quantity === 0 || result.data.quantity === src?.quantity) {
+                    // Movimiento completo
+                    this.inventory[result.data.slotSrc] = dst || null;
+                    this.inventory[result.data.slotDst] = src || null;
+                }
+                break;
+            }
+            case InventoryMovementType.GroundToInventory: {
+                if (result.data.slotInventory === 0xFE) {
+                    // Es oro
+                    Logger.info(`[INV] Gold picked up: +${result.data.gold}`, 'PacketRouter');
+                } else if (result.data.item) {
+                    this.inventory[result.data.slotInventory] = result.data.item;
+                }
+                break;
+            }
+            case InventoryMovementType.InventoryToGround: {
+                this.inventory[result.data.slotInventory] = null;
+                break;
+            }
+            case InventoryMovementType.InventoryToStorage: {
+                this.inventory[result.data.slotInventory] = null;
+                break;
+            }
+            case InventoryMovementType.StorageToInventory: {
+                // El item vendrá en un paquete separado o ya está en storage
+                break;
+            }
+            case InventoryMovementType.InventoryToShop:
+            case InventoryMovementType.InventoryToQuest: {
+                this.inventory[result.data.slotInventory] = null;
+                break;
+            }
+            case InventoryMovementType.QuestToInventory: {
+                if (result.data.item) {
+                    this.inventory[result.data.slotInventory] = result.data.item;
+                }
+                break;
+            }
+            case InventoryMovementType.InventoryToExchange:
+            case InventoryMovementType.ExchangeToInventory: {
+                // Intercambio — no modificamos inventario local
+                break;
+            }
+        }
+
+        // Enviar evento al frontend
+        if (this.session && this.session.wsSession) {
+            this.session.wsSession.sendEvent(`📦 Item movido: ${typeName}`, {
+                type: 'INVENTORY_MOVEMENT',
+                movementType: result.type,
+                movementName: typeName,
+                data: result.data,
+            });
+        }
+    }
+
+    /**
+     * 0x3040 - SERVER_INVENTORY_ITEM_UPDATE: Actualización de item (cantidad, estado).
+     */
+    handleInventoryUpdate(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        const update = parseInventoryUpdate(payload);
+        if (!update) return;
+
+        Logger.info(`[INV] Update slot=${update.slot} type=${update.updateType}`, 'PacketRouter');
+
+        if (update.updateType === 8 && this.inventory[update.slot]) {
+            // Quantity update
+            if (update.quantity === 0) {
+                this.inventory[update.slot] = null; // Item consumido
+            } else {
+                this.inventory[update.slot].quantity = update.quantity;
+            }
+        }
+
+        if (this.session && this.session.wsSession) {
+            this.session.wsSession.sendEvent(`📦 Item actualizado slot=${update.slot}`, {
+                type: 'INVENTORY_UPDATE',
+                slot: update.slot,
+                updateType: update.updateType,
+                quantity: update.quantity,
+                petState: update.petState,
+            });
+        }
+    }
+
+    /**
+     * 0x3052 - SERVER_INVENTORY_ITEM_DURABILITY_UPDATE
+     */
+    handleDurabilityUpdate(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        const update = parseDurabilityUpdate(payload);
+        if (!update) return;
+
+        if (this.inventory[update.slot]) {
+            this.inventory[update.slot].durability = update.durability;
+        }
+
+        if (this.session && this.session.wsSession) {
+            this.session.wsSession.sendEvent(`🔧 Durabilidad slot=${update.slot}: ${update.durability}`, {
+                type: 'DURABILITY_UPDATE',
+                slot: update.slot,
+                durability: update.durability,
+            });
+        }
+    }
+
+    /**
+     * 0x3092 - SERVER_INVENTORY_CAPACITY_UPDATE
+     */
+    handleCapacityUpdate(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        const update = parseCapacityUpdate(payload);
+        if (!update) return;
+
+        Logger.info(`[INV] Capacity updated to ${update.maxSlots}`, 'PacketRouter');
+
+        if (this.session && this.session.wsSession) {
+            this.session.wsSession.sendEvent(`📦 Capacidad de inventario: ${update.maxSlots} slots`, {
+                type: 'CAPACITY_UPDATE',
+                maxSlots: update.maxSlots,
+            });
+        }
+    }
+
+    /**
+     * 0x3047 - SERVER_STORAGE_DATA_BEGIN: Inicio de datos de bodega.
+     */
+    handleStorageBegin(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        this._storageAccumulator.begin(payload);
+        Logger.info(`[STORAGE] Begin — gold=${this._storageAccumulator.gold}`, 'PacketRouter');
+    }
+
+    /**
+     * 0x3049 - SERVER_STORAGE_DATA: Datos de bodega (partes).
+     */
+    handleStorageData(rawPacket, packetObj) {
+        const payload = rawPacket.slice(6);
+        this._storageAccumulator.add(payload);
+        Logger.debug(`[STORAGE] Data part — ${payload.length} bytes`, 'PacketRouter');
+    }
+
+    /**
+     * 0x304A - SERVER_STORAGE_DATA_END: Fin de datos de bodega.
+     */
+    handleStorageEnd(rawPacket, packetObj) {
+        const storage = this._storageAccumulator.end();
+        if (!storage) {
+            Logger.warn(`[STORAGE] End — no data accumulated`, 'PacketRouter');
+            return;
+        }
+
+        Logger.info(`[STORAGE] End — ${storage.items.length} items, gold=${storage.gold}`, 'PacketRouter');
+
+        if (this.session && this.session.wsSession) {
+            this.session.wsSession.sendEvent(`📦 Bodega: ${storage.items.length} items, ${storage.gold} gold`, {
+                type: 'STORAGE_DATA',
+                gold: storage.gold,
+                maxSlots: storage.maxSlots,
+                items: storage.items,
+            });
+        }
+
+        this._storageAccumulator.reset();
     }
 
     /**
