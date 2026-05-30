@@ -1,0 +1,76 @@
+/* styles.css */
+.rankings-container {
+  width: 100%;
+
+  font-weight: bold;
+  font-size: 20px;
+  margin: 5px;
+  text-align: center;
+  text-decoration: underline;
+  border-radius: 5px;
+}
+
+.rankings-header,
+.rankings-row {
+  background-color: #00000080;
+  margin: 5px;
+  display: grid;
+  grid-template-columns: 0.5fr 0.6fr 1.3fr 1fr 0.5fr 1fr 0.5fr 0.5fr 1fr 1fr; /* Ajusta las columnas */
+
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.rankings-cell {
+  font-size: 18px;
+
+  text-align: center;
+}
+.tl {
+  font-weight: bold;
+}
+
+.rankings-row .race-icon {
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+}
+
+.rankings-row .str {
+  color: red;
+}
+
+.rankings-row .int {
+  color: blue;
+}
+
+@media only screen and (max-width: 768px) {
+  .rankings-container {
+    font-size: 18px;
+    margin: 1px;
+  }
+
+  .rankings-row .race-icon {
+    width: 100%;
+    height: 100%;
+  }
+  .rankings-cell {
+    font-size: 13px;
+  }
+  .tl {
+    font-size: 15px;
+  }
+  .rankings-header,
+  .rankings-row {
+    grid-template-columns: 0.3fr 0.6fr 1fr 0.6fr 0.5fr 0.5fr 0.5fr;
+  }
+
+  /* Ocultar columnas */
+  .rankings-cell.job,
+  .rankings-cell.hp,
+  .rankings-cell.mp {
+    display: none;
+  }
+}

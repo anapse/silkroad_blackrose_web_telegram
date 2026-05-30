@@ -1,0 +1,116 @@
+/* CONTENEDOR */
+.game-container {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr;
+  height: 100vh;
+  background: radial-gradient(circle, #141421, #0a0a12);
+  color: white;
+}
+
+/* SELECTOR */
+.player-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(0,0,0,0.6);
+}
+
+.selector-img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.2s;
+  border: 2px solid transparent;
+}
+
+.selector-img:hover {
+  transform: scale(1.1);
+}
+
+.selector-img.active {
+  border: 2px solid gold;
+  box-shadow: 0 0 10px gold;
+}
+
+/* CHARACTER */
+.character-panel {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.character-main {
+  width: 220px;
+  filter: drop-shadow(0 0 20px gold);
+}
+
+/* EQUIP POSICIONES */
+.equip {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+}
+
+.equip img {
+  width: 100%;
+}
+
+/* POSICIONES (ajusta fino luego) */
+.weapon { left: 20%; top: 40%; }
+.shield { right: 20%; top: 40%; }
+.helmet { top: 10%; }
+.chest { top: 30%; }
+.legs { top: 55%; }
+.boots { top: 75%; }
+
+/* INFO */
+.info-box {
+  padding: 20px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+}
+
+/* BARRAS */
+.bar {
+  height: 12px;
+  background: #222;
+  margin: 10px 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar div {
+  height: 100%;
+}
+
+.hp div { background: red; }
+.mp div { background: blue; }
+
+/* STATS */
+.stats {
+  margin-top: 15px;
+}
+
+/* 📱 TELEGRAM RESPONSIVE */
+@media (max-width: 768px) {
+  .game-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .player-selector {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .character-main {
+    width: 160px;
+  }
+
+  .info-box {
+    text-align: center;
+  }
+}

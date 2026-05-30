@@ -1,0 +1,85 @@
+/* CONTENEDOR */
+#ContentR {
+  background-color: #00000090;
+  height: 100%;
+  width: 28%;
+  border-radius: 20px;
+  padding: 10px;
+  color: #e2e8f0;
+  font-family: Arial, sans-serif;
+}
+
+/* TÍTULOS */
+#ContentR h3 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #38bdf8;
+}
+#ContentR h4 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  color: #22c55e;
+}
+
+/* INPUTS */
+#ContentR input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #00000060;
+  color: white;
+  outline: none;
+}
+#ContentR input::placeholder {
+  color: #94a3b8;
+}
+
+/* BOTONES */
+#ContentR button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+}
+#ContentR button:hover {
+  background: #1d4ed8;
+}
+
+/* BOTONES TELEGRAM */
+.tg-button {
+  background: #22c55e;
+  margin-bottom: 5px;
+}
+.tg-button:hover {
+  background: #16a34a;
+}
+
+/* TEXTO */
+#ContentR p {
+  text-align: center;
+  margin-top: 10px;
+}
+#ContentR p[style] {
+  color: #ef4444 !important;
+}
+
+/* ESTADO LOGUEADO */
+.user-panel {
+  text-align: center;
+}
+.user-panel h3 {
+  color: #22c55e;
+}
+@media only screen and (max-width: 768px) {
+  #ContentR {
+    width: 100%;
+    margin-bottom: 20px ;
+  }
+  }  

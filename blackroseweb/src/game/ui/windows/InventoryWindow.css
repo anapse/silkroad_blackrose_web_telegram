@@ -1,0 +1,182 @@
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   INVENTORY WINDOW
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.inventory-window {
+    width: 440px;
+    max-width: 98vw;
+}
+
+.inventory-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    background: #000;
+}
+
+/* â”€â”€ Izquierda: grid 4Ã—8 â”€â”€ */
+.inventory-left {
+    width: 156px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.inventory-tabs { display: flex; gap: 2px; }
+
+.inv-tab {
+    background: #222;
+    border: 1px solid #444;
+    color: #fff;
+    font-size: 9px;
+    padding: 2px 6px;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+}
+.inv-tab.active {
+    background: #0d47a1;
+    border-color: #64b5f6;
+}
+
+.inventory-grid-container {
+    background: #111;
+    border: 2px solid #333;
+    padding: 2px;
+    flex: 1;
+}
+
+/* âœ… 4 columnas Ã— 8 filas = 32 slots */
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+}
+
+.inv-slot {
+    position: relative;
+    aspect-ratio: 1;
+    background: #050505;
+    border: 1px solid #222;
+    box-shadow: inset 0 0 5px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.inv-slot--filled { border-color: #555; }
+.inv-slot-inner   { width: 100%; height: 100%; }
+.inv-item-img     { width: 100%; height: 100%; object-fit: contain; }
+.inv-item-count {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    color: #fff;
+    font-size: 8px;
+    text-shadow: 1px 1px 1px #000;
+    pointer-events: none;
+}
+.inv-item-id {
+    font-size: 9px;
+    color: #c9a84c;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    word-break: break-all;
+    padding: 2px;
+}
+.eq-item-id {
+    font-size: 8px;
+    color: #c9a84c;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.1;
+    word-break: break-all;
+    padding: 1px;
+}
+
+.inventory-gold-bar {
+    background: #000;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    padding: 2px 5px;
+    gap: 6px;
+}
+.gold-icon {
+    width: 12px;
+    height: 12px;
+    background: #ffd700;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.gold-value {
+    color: #ff5252;
+    font-size: 11px;
+    font-weight: bold;
+    flex-grow: 1;
+    text-align: right;
+}
+.gold-label { color: #ccc; font-size: 10px; }
+
+/* â”€â”€ Derecha: equipamiento â”€â”€ */
+.inventory-right {
+    flex: 1;
+    min-width: 0;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px #000;
+}
+
+.char-silhouette {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000 80%);
+}
+
+/* Imagen 2D del personaje (refObjId) â€” tamaÃ±o reducido para caber entre slots */
+.char-2d-img {
+    position: absolute;
+    top: 55%;           /* Empieza mÃ¡s abajo para dejar espacio a los slots de armas */
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 55%;        /* MÃ¡s pequeÃ±o: antes era 80% */
+    max-height: 160px;
+    max-width: 110px;   /* No puede pasar de los slots laterales */
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.92;
+}
+
+/* Slots de equipo (posiciÃ³n absoluta via JS) */
+.eq-slot {
+    width: 34px;
+    height: 34px;
+    background: #050505;
+    border: 1px solid #3d3d3d;
+    box-shadow: inset 0 0 5px #000;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.eq-slot.large {
+    width: 44px;
+    height: 44px;
+    border-color: #546e7a;
+}
+.eq-slot-inner {
+    width: 28px;
+    height: 28px;
+    background: #000;
+    border: 1px solid #1a1a1a;
+    opacity: 0.5;
+}
+.eq-slot.large .eq-slot-inner { width: 36px; height: 36px; }
+.eq-item-img { width: 100%; height: 100%; object-fit: contain; }
+
+

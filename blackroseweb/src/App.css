@@ -1,0 +1,264 @@
+* {
+  box-sizing: border-box; /* Asegura que el padding y border se incluyan en el ancho y alto del elemento */
+}
+
+#root {
+  width: 100vw;
+  height: 100vh; /* Asegura que #root ocupe toda la altura del body */
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+  overflow: hidden; /* Evita cualquier desbordamiento adicional */
+}
+
+#app {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  background-image: url("./assets/fondo.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  overflow: auto;
+}
+
+#logo {
+  position: absolute;
+  background-image: url("./assets/logo.png");
+  width: 80px;
+  height: 80px;
+  right: 5px;
+  top: 5px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  animation-duration: 3s;
+  animation: rotation 7s infinite linear;
+}
+
+#menubar {
+  display: flex;
+  height: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+  position: relative;
+}
+
+#menubarF {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  background-color: #00000090;
+  border-radius: 15px;
+  height: auto;
+  width: 100vw;
+}
+
+a {
+  color: whitesmoke;
+  text-decoration: none;
+}
+
+.linkbar {
+  margin: 5px;
+}
+
+#iconlink {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  width: 140px;
+  height: 100%;
+}
+
+#facebook,
+#whatsapps,
+#discord {
+  width: 40px;
+  height: 40px;
+  background-size: cover;
+}
+
+#facebook {
+  background-image: url("./assets/facebook.png");
+}
+
+#whatsapps {
+  background-image: url("./assets/whatsapps.png");
+}
+
+#discord {
+  background-image: url("./assets/discord.png");
+}
+
+#separador {
+  height: 30vh;
+  display: flex;
+  flex-direction: row;
+  justify-content: right;
+  align-items: right;
+  
+ 
+}
+
+#menucontent {
+  width: 100%;
+  padding: 5px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: flex-start;
+}
+
+#ContentP {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #00000090;
+  width: 68%;
+  border-radius: 20px;
+  padding: 5px;
+}
+
+#ContentR {
+  background-color: #00000090;
+  height: 100%;
+  width: 28%;
+  border-radius: 20px;
+  padding: 1px;
+}
+.menulink {
+  margin: 10px;
+  overflow: hidden;
+}
+#menu {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 30px;
+  height: 30px;
+  z-index: 1000;
+  visibility: hidden;
+}
+
+.menu-label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 30px;
+  height: 30px;
+  z-index: 1;
+  background-image: url("./assets/menu.png");
+  background-size: cover;
+  cursor: pointer;
+  display: none;
+  transition: transform 1s ease-in-out;
+}
+.menu-label2 {
+  position: absolute;
+  left: 13px;
+  top: 13px;
+  width: 25px;
+  height: 25px;
+  z-index: 2;
+  background-image: url("./assets/x.png");
+  background-size: cover;
+  cursor: pointer;
+  display: none;
+  transition: transform 1s ease-in-out;
+}
+.menulink:hover {
+  background-color: #ffffff22;
+}
+
+@keyframes rotation {
+  25% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(720deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media only screen and (max-width: 768px) {
+  #menucontent {
+    display: flex;
+    width: 100%;
+    padding: 5px;
+    justify-content: center;
+
+    flex-direction: column;
+    flex-direction: column-reverse;
+
+  }
+  .menu-label {
+    display: block;
+  }
+  .menu-label2 {
+    display: block;
+  }
+  #ContentP {
+    width: 100%;
+  }
+  #separador {
+    height: 5vh;
+  }
+
+  #menubarF {
+    padding-top: 20px;
+    flex-direction: column;
+    opacity: 0; /* Inicialmente oculto */
+    height: auto; /* Ajuste necesario para evitar que el menú se encoja */
+    overflow: hidden; /* Oculta el contenido que se desborda */
+    transition: opacity 0.8s ease; /* Transición suave de opacidad */
+  }
+
+  .menulink {
+    width: 100%;
+    margin: 10px;
+  }
+
+  .menu {
+    display: block;
+  }
+
+  #menu:checked ~ #menubarF {
+    opacity: 1;
+  }
+
+  #menu:checked + .menu-label {
+    transform: scale(0.1);
+
+    transition: transform 0.5s ease-in-out;
+  }
+  #menu:not(:checked) ~ .menu-label {
+    transform: scale(1);
+    transition: transform 0.5s ease-in-out;
+  }
+
+  #menu:checked ~ .menu-label2 {
+    transition: transform 0.5s ease-in-out;
+    transform: scale(1);
+  }
+
+  #menu:not(:checked) ~ .menu-label2 {
+    transform: scale(0.1);
+    transition: transform 0.5s ease-in-out;
+  }
+}

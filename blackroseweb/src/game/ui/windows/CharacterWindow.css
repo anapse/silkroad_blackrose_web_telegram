@@ -1,0 +1,190 @@
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CHARACTER WINDOW
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CHARACTER / ACTION STATUS WINDOW
+   Estilo clÃ¡sico Silkroad Online (vSRO/iSRO 2005)
+   Layout fijo, pixel-perfect, compacto.
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.character-window {
+    width: 310px;
+    max-width: 310px;
+}
+
+/* â”€â”€â”€ NAME & LEVEL BAR â”€â”€â”€ */
+.char-name-bar {
+    background: linear-gradient(to right, #0a1a4a, #0d47a1, #0a1a4a);
+    border: 1px solid #2a3a6a;
+    padding: 3px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: inset 0 0 6px #000;
+    height: 22px;
+}
+.char-name  { color: #fff;    font-size: 12px; font-weight: bold; letter-spacing: 0.5px; }
+.char-level { color: #ffd700; font-size: 11px; font-weight: bold; }
+
+/* â”€â”€â”€ EXPERIENCE ROW â”€â”€â”€ */
+.char-exp-row {
+    background: rgba(0,0,0,0.45);
+    border: 1px solid #2a2a2a;
+    padding: 4px 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 28px;
+}
+.char-exp-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+}
+
+/* â”€â”€â”€ STAT / HONOR ROW â”€â”€â”€ */
+.char-stat-honor-row {
+    background: rgba(0,0,0,0.45);
+    border: 1px solid #2a2a2a;
+    border-top: none;
+    padding: 4px 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 26px;
+}
+.char-stat-honor-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+}
+
+/* â”€â”€â”€ STR / INT + HP/MP BARS â”€â”€â”€ */
+.char-str-int-grid {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid #2a2a2a;
+    border-top: none;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.char-stat-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 18px;
+}
+
+.stat-plus-btn {
+    background: linear-gradient(to bottom, #d4af37, #8a6d3b);
+    border: 1px solid #000;
+    color: #000;
+    width: 15px;
+    height: 15px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 1px;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.stat-plus-btn:hover {
+    background: linear-gradient(to bottom, #e6c44d, #a07d3b);
+}
+
+.char-hp-bar-outer,
+.char-mp-bar-outer {
+    flex: 1;
+    height: 12px;
+    background: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    position: relative;
+    overflow: hidden;
+}
+.char-hp-bar-fill {
+    height: 100%;
+    background: linear-gradient(to bottom, #ff4444, #aa0000);
+}
+.char-mp-bar-fill {
+    height: 100%;
+    background: linear-gradient(to bottom, #4488ff, #0044aa);
+}
+
+.bar-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 0;
+    left: 0;
+    font-size: 9px;
+    color: #fff;
+    text-shadow: 1px 1px 1px #000;
+    line-height: 12px;
+    pointer-events: none;
+}
+
+/* â”€â”€â”€ DETAILED STATS â€” 2-COLUMN GRID â”€â”€â”€ */
+.char-detailed-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid #2a2a2a;
+    border-top: none;
+    padding: 3px 6px;
+}
+.char-detailed-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.char-stat-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1px 4px;
+    height: 16px;
+}
+.char-stat-line .label-gold { font-size: 11px; white-space: nowrap; }
+.char-stat-line .value-white { font-size: 11px; text-align: right; min-width: 50px; }
+
+/* â”€â”€â”€ SEPARATOR â”€â”€â”€ */
+.char-separator {
+    height: 2px;
+    background: #1a1a1a;
+    border-top: 1px solid #2a2a2a;
+    border-bottom: 1px solid #111;
+}
+
+/* â”€â”€â”€ JOB SECTION â”€â”€â”€ */
+.char-job-section {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid #2a2a2a;
+    border-top: none;
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.char-job-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    align-items: center;
+    height: 18px;
+}
+.char-job-exp-bar-outer {
+    height: 12px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+.char-job-exp-fill {
+    height: 100%;
+    background: #3a3a3a;
+}
+
+

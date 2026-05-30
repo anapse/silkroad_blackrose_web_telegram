@@ -1,0 +1,26 @@
+{
+  "total": 18964,
+  "chunkSize": 5000,
+  "chunks": [
+    {
+      "file": "items_0000.json",
+      "start": 0,
+      "end": 4999
+    },
+    {
+      "file": "items_0001.json",
+      "start": 5000,
+      "end": 9999
+    },
+    {
+      "file": "items_0002.json",
+      "start": 10000,
+      "end": 14999
+    },
+    {
+      "file": "items_0003.json",
+      "start": 15000,
+      "end": 18963
+    }
+  ]
+}
