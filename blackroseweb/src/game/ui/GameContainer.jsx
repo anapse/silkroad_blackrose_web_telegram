@@ -178,6 +178,7 @@ function resolveMarkers() {
 ══════════════════════════════════════════════════════ */
 export default function GameContainer({ user, character }) {
   const { logout } = useAuth();
+  const { playerState, send } = useGameSocket();
 
   const [currentMap,     setCurrentMap]     = useState("world");
   const [activeWindow,   setActiveWindow]   = useState(null);
@@ -243,7 +244,8 @@ export default function GameContainer({ user, character }) {
   const { players, setPlayers, race } = usePlayerInit({
     user,
     character,
-    constants: { SPAWN, UNITS_PER_REGION, WALK_SPEED_WU }
+    constants: { SPAWN, UNITS_PER_REGION, WALK_SPEED_WU },
+    wsPlayer: playerState
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -381,7 +383,8 @@ export default function GameContainer({ user, character }) {
     insideCity,
     CITY_REGIONS,
     REGIONS,
-    constants: { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU }
+    constants: { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU },
+    wsSend: send
   });
 
   const tgUser   = window.Telegram?.WebApp?.initDataUnsafe?.user;

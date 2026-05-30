@@ -9,7 +9,7 @@
  * Basado en: https://github.com/svalencius/silkroad-bot
  */
 
-import Logger from '../../gamegateway/utils/Logger.js';
+import Logger from '../utils/Logger.js';
 import { parseOpcode, OPCODES } from '../opcodes/OPCODE_DEFINITIONS.js';
 import { LoginRequestBuilder } from '../builders/LoginRequestBuilder.js';
 

@@ -15,7 +15,7 @@
  * Basado en: https://github.com/svalencius/silkroad-bot
  */
 
-const PacketWriter = require('../../gamegateway/packet/PacketWriter');
+const PacketWriter = require('../../game/packet/PacketWriter');
 const { LOCALE_VIETNAM, DEFAULT_SERVER_ID } = require('../../config/gameConstants');
 
 export class LoginRequestBuilder {

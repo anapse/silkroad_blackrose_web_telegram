@@ -11,8 +11,8 @@
  * 4. Backend procesa y envía al cliente
  */
 
-import Logger from '../gamegateway/utils/Logger.js';
-import sessionManager from '../gamegateway/sessions/SessionManager.js';
+import Logger from './utils/Logger.js';
+import sessionManager from '../game/sessions/SessionManager.js';
 import { GAME_VERSION, LOCALE_VIETNAM, DEFAULT_SERVER_ID } from '../config/gameConstants.js';
 import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
 
@@ -113,7 +113,7 @@ export function handleCharacterSelectMessage(message, sessionId, tcpSession) {
         tcpSession._characterSelected = true;
 
         // Construir paquete de CHARACTER_SELECT usando formatPacket (mismo método que PacketRouter)
-        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const PacketWriter = require('../game/packet/PacketWriter');
         const p = new PacketWriter();
         p.writeString(characterName);
         const encPacket = tcpSession.security.formatPacket(0x7001, p.getBytes(), false);
@@ -194,7 +194,7 @@ export function handleDisconnectCharacterMessage(message, sessionId, tcpSession)
 
     try {
         // 0x7005 con byte 0x01 = volver a selección de personaje
-        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const PacketWriter = require('../game/packet/PacketWriter');
         const p = new PacketWriter();
         p.writeByte(0x01);
         const encPacket = tcpSession.security.formatPacket(0x7005, p.getBytes(), false);
@@ -251,7 +251,7 @@ export function handleChatSendMessage(message, sessionId, tcpSession) {
     );
 
     try {
-        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const PacketWriter = require('../game/packet/PacketWriter');
         const p = new PacketWriter();
         p.writeByte(chatType);
         p.writeByte(0x00); // unknown/padding
@@ -287,7 +287,7 @@ export function handleStallAction(message, sessionId, tcpSession) {
     Logger.info(`[STALL] Action: ${message.type}`, 'WebSocketLoginHandler');
 
     try {
-        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const PacketWriter = require('../game/packet/PacketWriter');
         let p, encPacket;
 
         switch (message.type) {
@@ -356,7 +356,7 @@ export function handleMovementAction(message, sessionId, tcpSession) {
     Logger.info(`[MOVE] Action: ${message.type}`, 'WebSocketLoginHandler');
 
     try {
-        const PacketWriter = require('../gamegateway/packet/PacketWriter');
+        const PacketWriter = require('../game/packet/PacketWriter');
         let p, encPacket;
 
         switch (message.type) {

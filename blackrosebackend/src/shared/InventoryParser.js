@@ -14,7 +14,7 @@
  * - 0x304A: SERVER_STORAGE_DATA_END — bodega end
  */
 
-import Logger from '../gamegateway/utils/Logger.js';
+import Logger from './utils/Logger.js';
 import { getTypeID2, getTypeID4, loadItemTypeDB } from './ItemTypeDB.js';
 
 // Cargar la DB de tipos al importar el módulo (una sola vez)

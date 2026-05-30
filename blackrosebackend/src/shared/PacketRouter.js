@@ -1,4 +1,4 @@
-import Logger from '../gamegateway/utils/Logger.js';
+import Logger from './utils/Logger.js';
 import { parseOpcode, getOpcodeDefinition } from './opcodes/OPCODE_DEFINITIONS.js';
 import { LoginHandler } from './handlers/LoginHandler.js';
 import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
@@ -104,7 +104,7 @@ export default class PacketRouter {
 
             // Leer el string de identificación del servidor (GatewayServer/AgentServer)
             try {
-                const reader = new (require('../gamegateway/packet/PacketReader'))(rawPacket);
+                const reader = new (require('../game/packet/PacketReader'))(rawPacket);
                 const serviceName = reader.readString(true);
                 Logger.info(`[IDENTIFICATION] service=${serviceName}`, 'PacketRouter');
 
@@ -145,7 +145,7 @@ export default class PacketRouter {
 
         Logger.info(`PacketRouter: sending PATCH_REQUEST (0x6100) locale=${locale} version=${version}`, 'PacketRouter');
 
-        const packet = new (require('../gamegateway/packet/PacketWriter'))();
+        const packet = new (require('../game/packet/PacketWriter'))();
         packet.writeByte(locale);
         packet.writeString("SR_Client");
         packet.writeDWord(version);
@@ -172,7 +172,7 @@ export default class PacketRouter {
 
         Logger.info(`PacketRouter: sending GAME_LOGIN (0x6103) for user=${username} token=${token}`, 'PacketRouter');
 
-        const packet = new (require('../gamegateway/packet/PacketWriter'))();
+        const packet = new (require('../game/packet/PacketWriter'))();
         packet.writeDWord(Number(token));
         packet.writeString(username || '');
         packet.writeString(password || '');
@@ -204,7 +204,7 @@ export default class PacketRouter {
             if (!this.shardListRequested) {
                 this.shardListRequested = true;
                 Logger.info('PacketRouter: sending SHARD_LIST_REQUEST (0x6101)', 'PacketRouter');
-                const emptyPacket = new (require('../gamegateway/packet/PacketWriter'))();
+                const emptyPacket = new (require('../game/packet/PacketWriter'))();
                 const encPacket = this.tcpSession.security.formatPacket(0x6101, emptyPacket.getBytes(), true);
                 this.tcpSession.send(encPacket);
                 if (this.session.wsSession) {
@@ -234,7 +234,7 @@ export default class PacketRouter {
         if (!this.shardListRequested) {
             this.shardListRequested = true;
             Logger.info('PacketRouter: sending SHARD_LIST_REQUEST (0x6101) on first shard list', 'PacketRouter');
-            const emptyPacket = new (require('../gamegateway/packet/PacketWriter'))();
+            const emptyPacket = new (require('../game/packet/PacketWriter'))();
             const encPacket = this.tcpSession.security.formatPacket(0x6101, emptyPacket.getBytes(), true);
             this.tcpSession.send(encPacket);
             if (this.session.wsSession) {
@@ -314,7 +314,7 @@ export default class PacketRouter {
         }
 
         try {
-            const PacketReader = require('../gamegateway/packet/PacketReader');
+            const PacketReader = require('../game/packet/PacketReader');
             // El payload real empieza en offset 6 del rawPacket (size 2 + opcode 2 + securityCount 1 + securityCRC 1)
             const payload = rawPacket.slice(6);
 
@@ -432,7 +432,7 @@ export default class PacketRouter {
             }
             // Enviar 0x7007 con byte 2 para solicitar lista de personajes
             try {
-                const PacketWriter = require('../gamegateway/packet/PacketWriter');
+                const PacketWriter = require('../game/packet/PacketWriter');
                 const p = new PacketWriter();
                 p.writeByte(2);
                 const encPacket = this.tcpSession.security.formatPacket(0x7007, p.getBytes(), false);
