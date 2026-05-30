@@ -94,42 +94,73 @@ NUEVA conexión TCP al Agent Server (15882)
 
 ## 🧩 Componentes del backend
 
-### `blackrosebackend/src/gamegateway/tcp/`
+> **NOTA**: Las rutas reales del código están en `game/`, no en `gamegateway/`.
+> La carpeta `gamegateway/` fue renombrada a `game/` durante una refactorización.
+
+### `blackrosebackend/src/game/network/tcp/` — Conexión TCP con el GameServer
 | Archivo | Responsabilidad |
 |---------|----------------|
 | `TcpClient.js` | Cliente TCP raw con manejo de buffers |
 | `TcpSession.js` | Sesión completa: handshake, login, character select |
 | `TcpConnectionManager.js` | Gestión de 2 conexiones (Gateway → Agent) |
 
-### `blackrosebackend/src/gamegateway/websocket/`
+### `blackrosebackend/src/game/network/ws/` — Servidor WebSocket
 | Archivo | Responsabilidad |
 |---------|----------------|
 | `WebSocketServer.js` | Servidor WebSocket, acepta clientes |
 | `WebSocketSession.js` | Sesión WebSocket, rutea mensajes JSON ↔ TCP |
 
-### `blackrosebackend/src/gamegateway/security/`
+### `blackrosebackend/src/game/security/` — Seguridad del protocolo
 | Archivo | Responsabilidad |
 |---------|----------------|
 | `Security.js` | Handshake Blowfish, generación de claves |
 | `securitytable.js` | Tablas de seguridad del handshake |
+| `blowfish/Blowfish.js` | Implementación Blowfish |
 
-### `blackrosebackend/src/gamegateway/packet/`
+### `blackrosebackend/src/game/packet/` — Manejo de paquetes binarios
 | Archivo | Responsabilidad |
 |---------|----------------|
 | `PacketAssembler.js` | Ensambla buffers TCP en paquetes completos |
 | `PacketReader.js` | Lee campos de un paquete binario |
 | `PacketWriter.js` | Escribe campos en un paquete binario |
 
-### `blackrosebackend/src/shared/`
+### `blackrosebackend/src/game/sessions/` — Gestión de sesiones
 | Archivo | Responsabilidad |
 |---------|----------------|
+| `SessionManager.js` | Administración de sesiones de clientes |
+
+### `blackrosebackend/src/game/relay/` — Relay de paquetes
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `RelayManager.js` | Gestión del relay TCP ↔ WebSocket |
+
+### `blackrosebackend/src/shared/` — Lógica compartida
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `PacketRouter.js` | Ruteo de opcodes a handlers específicos |
 | `PacketTranslator.js` | Traduce buffer → opcode + datos parseados |
 | `opcodes/OPCODE_DEFINITIONS.js` | Definiciones y parsers de opcodes |
 | `builders/LoginRequestBuilder.js` | Construye paquetes de login/character |
 | `handlers/LoginHandler.js` | Procesa respuestas del servidor |
+| `handlers/packet/` | Handlers por tipo: CharData, Chat, Gateway, Handshake, Inventory, Movement, Spawn |
 | `WebSocketLoginHandler.js` | Puente JSON WebSocket → paquetes TCP |
 | `InventoryParser.js` | Parsea datos de inventario |
 | `ItemTypeDB.js` | Base de datos de tipos de ítems |
+| `config/` | Configuración centralizada (env, gateway, database, security, constants) |
+| `database/` | Conexión MSSQL y consultas |
+| `utils/Logger.js` | Sistema de logging |
+
+### `blackrosebackend/src/web/` — API REST del portal web
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `routes/` | Rutas Express: auth, players, inventory, rankings, pages, shop, fragments |
+| `controllers/` | Controladores: autenticación, fragmentos, inventario, rankings, etc. |
+
+### `blackrosebackend/src/bootstrap/` — Punto de entrada
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `index.js` | Entry point: monta Express + inicia Gateway |
+| `app.js` | Configuración de Express (middleware, CORS) |
 
 ---
 
@@ -141,21 +172,79 @@ NUEVA conexión TCP al Agent Server (15882)
 | `hooks/useGameLoop.js` | Bucle principal del juego (requestAnimationFrame) |
 | `hooks/useMMOCamera.js` | Cámara con seguimiento y exploración manual |
 | `hooks/useMapInteractions.js` | Interacciones con el mapa (clics, marcadores) |
-| `utils/` | Conversión de coordenadas World Units → píxeles |
-| `constants/` | Regiones, mapas, puntos de interés |
+| `hooks/usePlayerInit.js` | Inicialización de posición del jugador |
+| `utils/geo.js` | Conversión de coordenadas World Units → píxeles |
+| `utils/camera.js` | Lógica de cámara |
+| `utils/movement.js` | Lógica de movimiento |
+| `utils/math.js` | Utilidades matemáticas |
+| `utils/vectors.js` | Operaciones vectoriales |
+| `utils/entityNames.js` | Nombres de entidades |
+| `data/` | Constantes de mapas, regiones, marcadores, mobs, NPCs |
+| `network/packets/` | PacketReader y PacketWriter del lado cliente |
 
-### `blackroseweb/src/Componentes/` — Interfaz de usuario
+### `blackroseweb/src/Componentes/game/` — Contenedor del juego
 | Componente | Descripción |
 |------------|-------------|
-| `game/UnderBar.jsx` | Barra inferior del juego (HP, MP, EXP) |
-| `game/Interfaces/` | Ventanas draggable: Character, Skills, Inventory |
-| `Home.jsx` | Portal web principal |
-| `Login.jsx` | Pantalla de login |
+| `GameContainer.jsx` | Contenedor principal del juego |
 
-### `blackroseweb/src/context/` — Estado global
+### `blackroseweb/src/web/components/` — Componentes del portal web
+| Componente | Descripción |
+|------------|-------------|
+| `ActionPanel.jsx` | Panel de acciones rápidas |
+| `ChatBox.jsx` | Caja de chat |
+| `ContenPrincipal.jsx` | Contenido principal del portal |
+| `ContentRight.jsx` | Panel lateral derecho |
+| `Mapas.jsx` | Visualización de mapas |
+| `Menubar.jsx` | Barra de menú |
+| `MenuContent.jsx` | Contenido del menú |
+| `UserPanel.jsx` | Panel de usuario |
+
+### `blackroseweb/src/web/pages/` — Páginas del portal
+| Página | Descripción |
+|--------|-------------|
+| `Home.jsx` | Portal web principal |
+| `PlayerDashboard.jsx` | Dashboard del personaje (HP, MP, equip, stats) |
+| `Rankings.jsx` | Rankings de jugadores/gremios |
+| `Registro.jsx` | Registro de cuenta |
+| `Descargas.jsx` | Página de descargas |
+
+### `blackroseweb/src/game/ui/` — Interfaz del juego 2D
+| Componente | Descripción |
+|------------|-------------|
+| `hud/UnderBar.jsx` | Barra inferior del juego (HP, MP, EXP) |
+| `windows/CharacterWindow.jsx` | Ventana de personaje (draggable) |
+| `windows/SkillWindow.jsx` | Ventana de habilidades (draggable) |
+| `windows/InventoryWindow.jsx` | Ventana de inventario (draggable) |
+| `windows/UnifiedGameWindow.jsx` | Ventana unificada del juego |
+| `screens/Characterselect.jsx` | Selector de personajes |
+| `screens/GameLogin.jsx` | Pantalla de login del juego |
+| `screens/LoginPage.jsx` | Página de login |
+| `screens/CaptchaDialog.jsx` | Diálogo de captcha |
+| `map/MapDot.jsx` | Punto en el mapa |
+
+### `blackroseweb/src/shared/context/` — Estado global
 | Contexto | Descripción |
 |----------|-------------|
-| `AuthContext.jsx` | Autenticación y sesión de usuario |
+| `AuthContext.jsx` | Autenticación y sesión de usuario (REST) |
+| `GameSocketContext.jsx` | Estado del juego vía WebSocket (HP, MP, posición, inventario, etc.) |
+
+### `blackroseweb/src/game/hooks/` — Hooks del motor de juego
+| Hook | Descripción |
+|------|-------------|
+| `useGameLoop.js` | Bucle principal del juego (requestAnimationFrame) |
+| `useMMOCamera.js` | Cámara con seguimiento y exploración manual |
+| `useMapInteractions.js` | Interacciones con el mapa (clics, marcadores) |
+| `usePlayerInit.js` | Inicialización de posición del jugador |
+
+### `blackroseweb/src/game/utils/` — Utilidades del motor
+| Archivo | Descripción |
+|---------|-------------|
+| `geo.js` | Conversión de coordenadas World Units ↔ píxeles |
+| `camera.js` | Lógica de cámara |
+| `movement.js` | Lógica de movimiento |
+| `math.js` | Utilidades matemáticas |
+| `vectors.js` | Operaciones vectoriales |
+| `entityNames.js` | Nombres de entidades |
 
 ---
 

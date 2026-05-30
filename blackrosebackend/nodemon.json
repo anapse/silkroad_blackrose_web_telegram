@@ -1,0 +1,12 @@
+{
+  "watch": ["src/"],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "node_modules/",
+    "../blackroseweb/",
+    "../docs/"
+  ],
+  "delay": 2000,
+  "signal": "SIGTERM",
+  "exec": "babel-node src/bootstrap/index.js"
+}

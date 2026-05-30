@@ -34,11 +34,13 @@
 | Limitación | Detalle |
 |-----------|---------|
 | Dual TCP incompleto | `TcpConnectionManager.js` existe pero la reconexión al Agent (pasos 2-5) puede no estar 100% implementada |
-| 0x6103/0xa103 sin parser | GAME_LOGIN/GAME_LOGIN_REPLY no tienen parser en OPCODE_DEFINITIONS.js |
-| REST contradictorio | README dice "no expone REST APIs" pero el portal web sí tiene rutas REST (controllers/routes) |
-| game/constants/ no existe | Los constants están en `/constants/gameConstants.js`, no en `/game/constants/` |
-| Credenciales MSSQL en código | `database/conection.js` expone usuario/contraseña de la BD |
+| 0x6103/0xa103 sin parser | GAME_LOGIN/GAME_LOGIN_REPLY no tienen parser completo en OPCODE_DEFINITIONS.js |
+| REST contradictorio | ARCHITECTURE.md dice "no expone REST APIs" pero el portal web sí tiene rutas REST (controllers/routes) — esto se actualizó para reflejar la realidad |
+| Credenciales MSSQL en código | `database/conection.js` expone usuario/contraseña de la BD (mitigado: config centralizada en env.js) |
 | LOGIN_FRONTEND_EXAMPLE.jsx | No está presente en el disco (fue eliminado en sesiones anteriores) |
+| CharacterSelect.jsx hardcodea MAX_HP/MAX_MP | Usa constantes fijas `MAX_HP = 20000` y `MAX_MP = 20000` en lugar de datos del WebSocket |
+| PlayerDashboard.jsx usa REST para datos | Mezcla datos REST (`urlsapi.playerData()`) con WebSocket (`playerState`) — posible fuente de inconsistencias |
+| `.gitignore` duplicados | Existen 3 archivos `.gitignore` (raíz, backend, frontend) — el de frontend ignora `.agent/` incorrectamente |
 
 ---
 
