@@ -213,7 +213,7 @@ export default function GameCanvas({
                 const ts = worldToRender(targetWorld.wx, targetWorld.wz);
                 return <div className="gc-dest-marker" style={{ left: ts.renderX, top: ts.renderZ }} />;
               })()}
-              {me?.worldX > 0 && Object.values(players).map(p => {
+              {Number.isFinite(me?.worldX) && Number.isFinite(me?.worldZ) && Object.values(players).map(p => {
                 const sz = Math.max(8, 16 / world.zoom);
                 const isEuro = p.race === 'euro';
                 const color = isEuro ? '#44aaff' : '#ff5555';
@@ -229,11 +229,11 @@ export default function GameCanvas({
                 );
               })}
               {/* Entities */}
-              {me?.worldX > 0 && Object.values(entities).filter(e => {
+              {Number.isFinite(me?.worldX) && Number.isFinite(me?.worldZ) && Object.values(entities).filter(e => {
                 const eRegionX = e.region & 0xFF;
                 const eRegionZ = (e.region >> 8) & 0xFF;
-                const eWorldX = eRegionX * UNITS_PER_REGION + (e.posX || 0);
-                const eWorldZ = eRegionZ * UNITS_PER_REGION + (e.posZ || 0);
+                const eWorldX = ((eRegionX - 135) * UNITS_PER_REGION) + (e.posX || 0);
+                const eWorldZ = ((eRegionZ - 92) * UNITS_PER_REGION) + (e.posZ || 0);
                 const dx = Math.abs(eWorldX - me.worldX);
                 const dz = Math.abs(eWorldZ - me.worldZ);
                 const range = Math.max(3000, 8000 / world.zoom);
@@ -241,8 +241,8 @@ export default function GameCanvas({
               }).map(e => {
                 const eRegionX = e.region & 0xFF;
                 const eRegionZ = (e.region >> 8) & 0xFF;
-                const eWorldX = eRegionX * UNITS_PER_REGION + (e.posX || 0);
-                const eWorldZ = eRegionZ * UNITS_PER_REGION + (e.posZ || 0);
+                const eWorldX = ((eRegionX - 135) * UNITS_PER_REGION) + (e.posX || 0);
+                const eWorldZ = ((eRegionZ - 92) * UNITS_PER_REGION) + (e.posZ || 0);
                 const r = worldToRender(eWorldX, eWorldZ);
                 const isChar = e.entityType === 'CHAR';
                 const isMob = e.entityType === 'MOB';

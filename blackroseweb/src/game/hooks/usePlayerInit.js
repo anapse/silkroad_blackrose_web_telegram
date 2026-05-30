@@ -30,8 +30,8 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     regionZ = (regionId >> 8) & 0xFF;
     posX = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posX)));
     posZ = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posZ || 0)));
-    worldX = (regionX * UNITS_PER_REGION) + posX;
-    worldZ = (regionZ * UNITS_PER_REGION) + posZ;
+    worldX = ((regionX - 135) * UNITS_PER_REGION) + posX;
+    worldZ = ((regionZ - 92) * UNITS_PER_REGION) + posZ;
     posY = wsPlayer?.posY ?? null;
     const render = worldToRender(worldX, worldZ);
     renderX = render.renderX;

@@ -118,8 +118,8 @@ export function useGameLoop({
 
           // ── SINCRONIZACIÓN DE RENDER (siempre ejecutar, incluso sin _targetWX) ──
           const r = worldToRender(p.worldX, p.worldZ);
-          const rX = Math.floor(p.worldX / R);
-          const rZ = Math.floor(p.worldZ / R);
+          const rX = Math.floor(p.worldX / R) + 135;
+          const rZ = Math.floor(p.worldZ / R) + 92;
 
           if (p.renderX !== r.renderX || p.renderZ !== r.renderZ || p.regionX !== rX || p.regionZ !== rZ) {
             p.renderX = r.renderX;

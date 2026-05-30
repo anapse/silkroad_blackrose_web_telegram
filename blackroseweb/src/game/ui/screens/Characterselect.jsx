@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from "react";
 import { useGameSocket } from "../../../shared/context/GameSocketContext.jsx";
+import { GameLoading } from "../GameContainer.jsx";
 
 // HP/MP no están disponibles en 0xB007 (CHARACTER_LIST).
 // Se mostrarán como "?" hasta que lleguen vía PLAYER_UPDATE/CHARACTER_DATA por WebSocket.
@@ -25,19 +26,7 @@ export default function CharacterSelect({ onStart, onBack }) {
 
   // Mientras carga
   if (loadingChars) {
-    return (
-      <div style={{
-        minHeight: "var(--tg-viewport-stable-height,100vh)",
-        background: "#000",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 12,
-      }}>
-        <span style={{ fontSize: 36 }}>🌹</span>
-        <span style={{ color: "#8b6914", fontFamily: "sans-serif", fontSize: 13 }}>
-          Cargando personajes...
-        </span>
-      </div>
-    );
+    return <GameLoading text="Cargando personajes..." />;
   }
 
   // Si hay error

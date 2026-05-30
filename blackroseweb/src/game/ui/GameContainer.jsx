@@ -173,12 +173,50 @@ function resolveMarkers() {
   }).filter(Boolean);
 }
 
+export function GameLoading({ text = "Cargando..." }) {
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingImg, setLoadingImg] = useState(1);
+
+  useEffect(() => {
+    setLoadingImg(Math.floor(Math.random() * 7) + 1);
+
+    const interval = setInterval(() => {
+      setLoadingProgress((prev) => (prev >= 95 ? 95 : prev + 1.5));
+    }, 80);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="gc-loading-screen">
+      <img
+        src={`/interface/loading/loading_china_${loadingImg}.png`}
+        className="gc-loading-img"
+        alt="Loading..."
+      />
+
+      <div className="gc-progress-bar-container">
+        <img
+          src="/interface/loading/gauge_loading.png"
+          className="gc-progress-bar-fill"
+          style={{ width: `${loadingProgress}%` }}
+          alt="progress"
+        />
+
+        <div className="gc-progress-bar-text">
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════
    COMPONENT
 ══════════════════════════════════════════════════════ */
 export default function GameContainer({ user, character }) {
   const { logout } = useAuth();
-  const { playerState, send } = useGameSocket();
+  const { playerState, entities, send } = useGameSocket();
 
   const [currentMap,     setCurrentMap]     = useState("world");
   const [activeWindow,   setActiveWindow]   = useState(null);
@@ -248,30 +286,13 @@ export default function GameContainer({ user, character }) {
     wsPlayer: playerState
   });
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [loadingImg, setLoadingImg] = useState(1);
+  const hasPlayerPosition =
+    playerState?.region != null &&
+    playerState?.posX != null &&
+    playerState?.posZ != null;
 
-  useEffect(() => {
-    // Randomize loading image on start
-    setLoadingImg(Math.floor(Math.random() * 7) + 1);
-    
-    let start = Date.now();
-    const duration = 4000; // 4 seconds
-    
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(100, (elapsed / duration) * 100);
-      setLoadingProgress(progress);
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => setIsLoading(false), 500); // Small buffer at 100%
-      }
-    }, 50);
-    
-    return () => clearInterval(interval);
-  }, []);
+  const hasMapEntities = Object.keys(entities || {}).length > 0;
+  const isWorldReady = hasPlayerPosition && hasMapEntities;
 
   const [targetWorld, setTargetWorld] = useState(null);
 
@@ -391,33 +412,8 @@ export default function GameContainer({ user, character }) {
   const cityData = isCity ? CITY_MAPS[currentMap] : null;
 
   // --- LOADING SCREEN ---
-  if (isLoading) {
-    return (
-      <div className="gc-loading-screen">
-        {/* Background Image */}
-        <img 
-          src={`/interface/loading/loading_china_${loadingImg}.png`} 
-          className="gc-loading-img"
-          alt="Loading..." 
-        />
-        
-        {/* Progress Bar Container */}
-        <div className="gc-progress-bar-container">
-          {/* The actual loading image stretched */}
-          <img 
-            src="/interface/loading/gauge_loading.png" 
-            className="gc-progress-bar-fill"
-            style={{ width: `${loadingProgress}%` }}
-            alt="progress" 
-          />
-          
-          {/* Percentage text */}
-          <div className="gc-progress-bar-text">
-            {Math.floor(loadingProgress)}%
-          </div>
-        </div>
-      </div>
-    );
+  if (!isWorldReady) {
+    return <GameLoading text="Cargando mundo..." />;
   }
 
   const me = players.me;

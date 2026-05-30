@@ -533,7 +533,20 @@ export default class PacketRouter {
         const result = rawPacket.length > 6 ? rawPacket.readUInt8(6) : 0;
         Logger.info(`[B001] Character select confirmed, result=${result}`, 'PacketRouter');
         if (result === 1 && this.session && this.session.wsSession) {
-            this.session.wsSession.sendStatus('CHARACTER_SELECT_OK');
+            const info = this._pendingPlayerInfo || {};
+            this.session.wsSession.sendStatus('CHARACTER_SELECT_OK', {
+                region: info.region ?? null,
+                posX: info.posX ?? null,
+                posZ: info.posZ ?? null,
+                posY: info.posY ?? null,
+                hp: info.hp ?? null,
+                mp: info.mp ?? null,
+                maxHp: info.maxHp ?? info.hp ?? null,
+                maxMp: info.maxMp ?? info.mp ?? null,
+                level: info.level ?? null,
+                refObjId: info.refObjId ?? null,
+                playerName: info.playerName ?? null,
+            });
             this.session.wsSession.sendEvent('✅ Personaje seleccionado — entrando al mundo');
         }
     }
