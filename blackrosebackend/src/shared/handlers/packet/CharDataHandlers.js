@@ -199,8 +199,8 @@ export function createCharDataHandlers(router) {
                             Math.abs(xo) < 2000 && Math.abs(zo) < 2000 && Math.abs(yo) < 2000 &&
                             !(Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001)) {
                             playerUniqueId = uid;
-                            initPos = { region, posX: Math.round(xo / 10), posY: Math.round(zo / 10), posZ: Math.round(yo / 10) };
-                            Logger.info('[CHAR_DATA] Position found (sequential): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo/10).toFixed(1) + ' z=' + (zo/10).toFixed(1) + ' y=' + (yo/10).toFixed(1) + ' uid=' + uid, 'CharData');
+                            initPos = { region, posX: Math.round(xo / 10), posZ: Math.round(zo / 10), posY: Math.round(yo / 10) };
+                            Logger.info('[CHAR_DATA] Position found (sequential): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (zo / 10).toFixed(1) + ' y=' + (yo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         } else {
                             pos -= 20; // retroceder si no es válida
                             Logger.info('[CHAR_DATA] Position at sequential pos invalid, will scan backward', 'CharData');
@@ -229,8 +229,8 @@ export function createCharDataHandlers(router) {
                         if (Math.abs(xo) > 2000 || Math.abs(zo) > 2000 || Math.abs(yo) > 2000) continue;
                         if (Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001) continue;
                         playerUniqueId = uid;
-                        initPos = { region, posX: Math.round(xo / 10), posY: Math.round(zo / 10), posZ: Math.round(yo / 10) };
-                        Logger.info('[CHAR_DATA] Position found (backward scan): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo/10).toFixed(1) + ' z=' + (zo/10).toFixed(1) + ' y=' + (yo/10).toFixed(1) + ' uid=' + uid, 'CharData');
+                        initPos = { region, posX: Math.round(xo / 10), posZ: Math.round(zo / 10), posY: Math.round(yo / 10) };
+                        Logger.info('[CHAR_DATA] Position found (backward scan): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (zo / 10).toFixed(1) + ' y=' + (yo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         break;
                     }
                 }
@@ -264,6 +264,15 @@ export function createCharDataHandlers(router) {
                             type: 'PLAYER_POSITION_INIT', region: initPos.region,
                             posX: initPos.posX, posY: initPos.posY, posZ: initPos.posZ,
                         });
+                        // También enviar PLAYER_SPAWNED para que el frontend cargue el mundo
+                        router.session.wsSession.sendEvent('', {
+                            type: 'PLAYER_SPAWNED', region: initPos.region,
+                            posX: initPos.posX, posY: initPos.posY, posZ: initPos.posZ,
+                            level: level || '?', hp: hp || '?', mp: mp || '?',
+                            maxHp: hp || 0, maxMp: mp || 0,
+                            sp: sp || 0, exp: currentExp ?? 0,
+                            refObjId: modelId, playerName: 'Player',
+                        });
                     } else {
                         Logger.info('[CHAR_DATA] No valid position found, waiting for 0xB023 or 0x3020', 'CharData');
                     }
@@ -276,6 +285,7 @@ export function createCharDataHandlers(router) {
                 if (router.session && router.session.wsSession) {
                     router.session.wsSession.sendEvent('', {
                         type: 'PLAYER_UPDATE', hp, maxHp: hp, mp, maxMp: mp, level, sp, exp: currentExp,
+                        region: initPos.region, posX: initPos.posX, posY: initPos.posY, posZ: initPos.posZ,
                     });
                     Logger.info('[CHAR_DATA] Stats sent to frontend: HP=' + hp + '/' + hp + ' MP=' + mp + '/' + mp + ' Lv=' + level + ' SP=' + sp, 'CharData');
                 }
@@ -293,8 +303,10 @@ export function createCharDataHandlers(router) {
                 }
 
                 try {
+                    console.log('[0x3012] Intentando enviar...');
                     const cs = router.tcpSession.security.formatPacket(0x3012, Buffer.alloc(0), true);
                     router.tcpSession.send(cs);
+                    console.log('[0x3012] Enviado correctamente');
                 } catch (e) {
                     Logger.error('0x3012: ' + e.message, 'CharData');
                 }

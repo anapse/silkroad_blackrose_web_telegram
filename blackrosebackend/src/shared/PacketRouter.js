@@ -1,10 +1,12 @@
-import Logger from './utils/Logger.js';
+import Logger from '../shared/utils/Logger.js';
 import { parseOpcode, getOpcodeDefinition } from './opcodes/OPCODE_DEFINITIONS.js';
 import { LoginHandler } from './handlers/LoginHandler.js';
 import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
 import { OPCODE_LOGIN_REQUEST, GAME_VERSION, LOCALE_VIETNAM } from '../config/gameConstants.js';
 import { parseInventory, parseInventoryMovement, parseInventoryUpdate, parseDurabilityUpdate, parseCapacityUpdate, StorageAccumulator, InventoryMovementType, parseItem } from './InventoryParser.js';
 import { getTypeID2 } from './ItemTypeDB.js';
+import { createSpawnHandlers } from './handlers/packet/SpawnHandlers.js';
+import { createCharDataHandlers } from './handlers/packet/CharDataHandlers.js';
 
 export default class PacketRouter {
     constructor(tcpSession, session) {
@@ -27,8 +29,24 @@ export default class PacketRouter {
         this._charDataBuffer = null;
         this._pendingPlayerInfo = null; // stats parciales, posición llega en 0x3020
 
+        // Propiedades para CharDataHandlers y SpawnHandlers
+        this._expectedUniqueId = null;
+        this._initPosSent = false;
+        this._spawnSent = false;
+        this._spawnReadyTimer = null;
+        this._lastPlayerPosY = 0;
+        this._selectedCharName = 'Player';
+        this._charFullData = null;
+
         // Acumulador de storage/bodega (0x3047 → 0x3049 → 0x304A)
         this._storageAccumulator = new StorageAccumulator();
+
+        // Spawn handlers from SpawnHandlers.js
+        this.spawnHandlers = createSpawnHandlers(this);
+        this.spawnStats = { single: 0, group: 0 };
+
+        // CharData handlers from CharDataHandlers.js
+        this.charDataHandlers = createCharDataHandlers(this);
 
         // Inventario actual del jugador (mapa slot → item)
         this.inventory = [];
@@ -47,15 +65,15 @@ export default class PacketRouter {
             '0xb007': this.handleCharacterList.bind(this),
             '0xb001': this.handleCharacterSelectConfirm.bind(this),
             // Game world - character data accumulator (xBot pattern)
-            '0x34a5': this.handleCharDataBegin.bind(this),
-            '0x3013': this.handleCharData.bind(this),
-            '0x34a6': this.handleCharDataEnd.bind(this),
+            '0x34a5': (rawPacket, packetObj) => this.charDataHandlers.handleCharDataBegin(rawPacket, packetObj),
+            '0x3013': (rawPacket, packetObj) => this.charDataHandlers.handleCharData(rawPacket, packetObj),
+            '0x34a6': (rawPacket, packetObj) => this.charDataHandlers.handleCharDataEnd(rawPacket, packetObj),
             '0x34b5': this.handleSpawnRequest.bind(this),
             '0x3015': this.handleSingleSpawn.bind(this),
             '0x3016': this.handleSingleDespawn.bind(this),
-            '0x3017': this.handleGroupSpawnBegin.bind(this),
-            '0x3018': this.handleGroupSpawnEnd.bind(this),
-            '0x3019': this.handleGroupSpawnData.bind(this),
+            '0x3017': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnBegin(rawPacket, packetObj),
+            '0x3018': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnEnd(rawPacket, packetObj),
+            '0x3019': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnData(rawPacket, packetObj),
             '0x3020': this.handlePositionUpdate.bind(this),
             '0x3026': this.handleChat.bind(this),
             '0x059c': this.handleUnknown059c.bind(this),
@@ -87,7 +105,7 @@ export default class PacketRouter {
             handler(rawPacket, packetObj);
             return true;
         } catch (err) {
-            Logger.error(`PacketRouter error handling opcode=${packetObj.opcode}`, err, 'PacketRouter');
+            Logger.error(`PacketRouter error handling opcode=${packetObj.opcode} - ${err.message}\n${err.stack}`, 'PacketRouter');
             return false;
         }
     }
@@ -534,11 +552,15 @@ export default class PacketRouter {
         Logger.info(`[B001] Character select confirmed, result=${result}`, 'PacketRouter');
         if (result === 1 && this.session && this.session.wsSession) {
             const info = this._pendingPlayerInfo || {};
+            // Solo incluir posición si está disponible (evita sobreescribir con null)
+            const posData = (info.region && info.region > 0) ? {
+                region: info.region,
+                posX: info.posX,
+                posZ: info.posZ,
+                posY: info.posY,
+            } : {};
             this.session.wsSession.sendStatus('CHARACTER_SELECT_OK', {
-                region: info.region ?? null,
-                posX: info.posX ?? null,
-                posZ: info.posZ ?? null,
-                posY: info.posY ?? null,
+                ...posData,
                 hp: info.hp ?? null,
                 mp: info.mp ?? null,
                 maxHp: info.maxHp ?? info.hp ?? null,
@@ -548,256 +570,6 @@ export default class PacketRouter {
                 playerName: info.playerName ?? null,
             });
             this.session.wsSession.sendEvent('✅ Personaje seleccionado — entrando al mundo');
-        }
-    }
-
-    /**
-     * 0x34A5 - CHARACTER_DATA_BEGIN: Inicia acumulación de datos del personaje
-     */
-    handleCharDataBegin(rawPacket, packetObj) {
-        this._charDataBuffer = Buffer.alloc(0);
-        Logger.info(`[CHAR_DATA] Begin accumulating`, 'PacketRouter');
-    }
-
-    /**
-     * 0x3013 - CHARACTER_DATA: Fragmentos de datos del personaje.
-     * SOLO acumulamos aquí. El parseo completo se hace en handleCharDataEnd (0x34A6).
-     */
-    handleCharData(rawPacket, packetObj) {
-        if (!this._charDataBuffer) this._charDataBuffer = Buffer.alloc(0);
-
-        // ═══════════════════════════════════════════════════════════════
-        // CADA fragment 0x3013 es un paquete Silkroad COMPLETO
-        // que YA fue desencriptado en TcpSession.handleIncomingData().
-        //
-        // rawPacket YA está desencriptado y tiene estructura:
-        //   [0-1] payloadSize (size & 0x7FFF del paquete original)
-        //   [2-3] opcode (0x3013)
-        //   [4]   securityCount
-        //   [5]   securityCRC
-        //   [6-N] payload limpio (datos del personaje)
-        //
-        // Solo hacemos slice(6) para obtener el payload limpio.
-        // ═══════════════════════════════════════════════════════════════
-
-        const payload = rawPacket.slice(6);
-
-        // 🔍 DEBUG: log del primer fragment para verificar
-        if (this._charDataBuffer.length === 0) {
-            console.log(' ');
-            console.log('═══════════════════════════════════════════════════');
-            console.log(`🔬 [CHAR_DATA] First 0x3013 fragment — ${payload.length} bytes of payload`);
-            console.log(`   rawPacket size=${rawPacket.length} opcode=${packetObj.opcode}`);
-            console.log(`   Payload first 64 bytes hex:`);
-            console.log('   ' + payload.subarray(0, Math.min(64, payload.length)).toString('hex'));
-            console.log('═══════════════════════════════════════════════════');
-            console.log(' ');
-        }
-
-        this._charDataBuffer = Buffer.concat([this._charDataBuffer, payload]);
-        Logger.info(`[CHAR_DATA] 0x3013 fragment — accumulated ${this._charDataBuffer.length} bytes total`, 'PacketRouter');
-    }
-
-    /**
-         * 0x34A6 - CHARACTER_DATA_END: Buffer completo. Parseamos stats + inventario AQUÍ.
-         * Acumulamos también el payload del 0x34A6 (puede traer datos extra en algunos servers).
-         */
-    handleCharDataEnd(rawPacket, packetObj) {
-        // Acumular payload del 0x34A6 (por si trae datos adicionales)
-        const endPayload = rawPacket.slice(6);
-        if (endPayload.length > 0 && this._charDataBuffer) {
-            Logger.info(`[CHAR_DATA] 0x34A6 payload has ${endPayload.length} bytes — appending to buffer`, 'PacketRouter');
-            this._charDataBuffer = Buffer.concat([this._charDataBuffer, endPayload]);
-        }
-
-        if (!this._charDataBuffer || this._charDataBuffer.length < 62) {
-            Logger.warn(`[CHAR_DATA] Buffer insuficiente al final (${this._charDataBuffer?.length || 0} bytes)`, 'PacketRouter');
-            this._charDataBuffer = null;
-            return;
-        }
-        const data = this._charDataBuffer;
-        Logger.info(`[CHAR_DATA] End — parseando ${data.length} bytes del buffer completo`, 'PacketRouter');
-
-        // 🔍 DUMP: primeros 160 bytes del buffer crudo en hex para diagnóstico
-        console.log(' ');
-        console.log('═══════════════════════════════════════════════════');
-        console.log(`🔬 [CHAR_DATA] Raw buffer (${data.length} bytes total) — first 160 bytes hex:`);
-        console.log('   ' + data.subarray(0, Math.min(160, data.length)).toString('hex'));
-        console.log('═══════════════════════════════════════════════════');
-        console.log(' ');
-
-        try {
-            let pos = 0;
-
-            // ═══════════════════════════════════════════════════════════
-            // ESTRUCTURA DE CharacterData — BASADO EN EL HEX REAL:
-            //
-            // Hex: 5ae1b6c7 82070000 445555 bb2203000000000000 2b000000
-            //       ↑timestamp ↑modelId ↑scl/lv/max ↑exp(8)      ↑skillExp
-            //       b075c50200000000 85230b00 00000000 0000628c 00002c42
-            //       ↑gold(8)         ↑sp      ↑statPts ↑berserk ↑expChunk
-            //       00000100 00000000 00000000 57250100 00000000
-            //       ↑hp       ↑mp      ↑auto/dPK ↑totalPK  ↑pkPenalty
-            //       440e0000 00000000 00000000 00003400 00000001
-            //       ↑serverCap+extra ↑maxSlots ↑itemCount ↑slot0 ↑id...
-            //
-            // VSRO SÍ tiene serverTimestamp (4 bytes) al inicio.
-            // ═══════════════════════════════════════════════════════════
-
-            console.log(`📏 [CHAR_DATA] Parsing stats from offset ${pos}...`);
-
-            // [0] serverTimestamp (uint32) — VSRO SÍ lo tiene
-            pos += 4;
-            console.log(`   +4 serverTimestamp (skip)`);
-
-            // [1] modelId (uint32)
-            const modelId = data.readUInt32LE(pos); pos += 4;
-            console.log(`   +4 modelId=${modelId} (0x${modelId.toString(16)})`);
-
-            // [2-4] scale, level, maxLevel
-            const scale = data.readUInt8(pos); pos += 1;
-            const level = data.readUInt8(pos); pos += 1;
-            const levelMax = data.readUInt8(pos); pos += 1;
-            console.log(`   +3 scale=${scale} level=${level} maxLevel=${levelMax}`);
-
-            // [5] exp (uint64)
-            pos += 8;
-            // [6] skillExp (uint32)
-            pos += 4;
-            // [7] gold (uint64)
-            const gold = Number(data.readBigUInt64LE(pos)); pos += 8;
-            // [8] skillPoints (uint32)
-            const sp = data.readUInt32LE(pos); pos += 4;
-            // [9] statPoints (uint16)
-            pos += 2;
-            // [10] berserkPoints (uint8)
-            pos += 1;
-            // [11] expChunk (uint32)
-            pos += 4;
-            // [12] health (int32)
-            const hp = data.readUInt32LE(pos); pos += 4;
-            // [13] mana (int32)
-            const mp = data.readUInt32LE(pos); pos += 4;
-            // [14] autoInvest (uint8)
-            pos += 1;
-            // [15] dailyPK (uint8)
-            pos += 1;
-            // [16] totalPK (uint16)
-            pos += 2;
-            // [17] pkPenalty (uint32)
-            pos += 4;
-            // [18] berserkLevel (uint8) — xBot: character.BerserkLevel
-            pos += 1;
-            // [19] pvpCapeType (uint8) — xBot: character.PVPCapeType
-            pos += 1;
-
-            console.log(`   stats end at offset=${pos}`);
-
-            // 🔍 DEBUG: scanear bytes pre-inventory para encontrar maxSlots/itemCount
-            // Buscar un byte razonable (30-120) seguido de un byte (1-40) como posibles maxSlots+itemCount
-            console.log(`   Scanning for inventory signature (maxSlots 30-120, itemCount 1-40)...`);
-            for (let scan = pos; scan < Math.min(pos + 30, data.length - 1); scan++) {
-                const candidateSlots = data.readUInt8(scan);
-                const candidateCount = data.readUInt8(scan + 1);
-                if (candidateSlots >= 30 && candidateSlots <= 120 && candidateCount >= 1 && candidateCount <= 40) {
-                    console.log(`   → CANDIDATE at offset ${scan}: maxSlots=${candidateSlots} itemCount=${candidateCount} hex=${data.subarray(scan, scan + 6).toString('hex')}`);
-                }
-            }
-            const preInvHex = data.subarray(pos, Math.min(pos + 16, data.length)).toString('hex');
-            console.log(`   Bytes at current offset ${pos}: ${preInvHex}`);
-
-            // ─── INVENTARIO ───
-            const maxSlots = data.readUInt8(pos); pos += 1;
-            const itemCount = data.readUInt8(pos); pos += 1;
-            console.log(`   INVENTORY: maxSlots=${maxSlots} itemCount=${itemCount} at offset=${pos}`);
-
-            Logger.info(`[CHAR_DATA] Stats: Lv=${level} HP=${hp} MP=${mp} gold=${gold} slots=${maxSlots} itemCount=${itemCount}`, 'PacketRouter');
-
-            if (itemCount > 0) {
-                console.log(`   Next ${Math.min(80, data.length - pos)} bytes from offset ${pos}:`);
-                console.log('   ' + data.subarray(pos, Math.min(pos + 80, data.length)).toString('hex'));
-            }
-            console.log(' ');
-
-            // Parsear items usando parseItem de InventoryParser (parseo robusto)
-            const inventory = [];
-            const seenSlots = new Set();
-            let rejectedCount = 0;
-            let rejectedIds = [];
-            for (let i = 0; i < itemCount && pos < data.length; i++) {
-                if (pos + 1 > data.length) break;
-                const slot = data.readUInt8(pos); pos += 1;
-                const itemStartOffset = pos;
-
-                // 🔍 Log item-level: mostrar hex del slot + 20 bytes siguientes
-                const itemHexPreview = data.subarray(itemStartOffset - 1, Math.min(itemStartOffset + 20, data.length)).toString('hex');
-
-                const { item: parsedItem, offset: newPos } = parseItem(data, pos);
-                const bytesConsumed = newPos - pos;
-                pos = newPos;
-
-                // 🔍 Log detallado de cada item parseado
-                const typeId2 = parsedItem ? (getTypeID2(parsedItem.id) || 0) : 0;
-                const idHex = parsedItem?.id ? '0x' + parsedItem.id.toString(16).padStart(8, '0') : 'N/A';
-                console.log(`   [ITEM ${i}] slot=${slot} id=${parsedItem?.id} (${idHex}) typeId2=${typeId2} consumed=${bytesConsumed}B hex_preview=${itemHexPreview}`);
-
-                // Validar: slot válido, no duplicado
-                if (parsedItem &&
-                    parsedItem.id > 0 &&
-                    parsedItem.id < 1000000 &&
-                    slot >= 0 &&
-                    slot < maxSlots + 13 &&
-                    !seenSlots.has(slot)) {
-
-                    seenSlots.add(slot);
-                    inventory.push({
-                        slot,
-                        id: parsedItem.id,
-                        plus: parsedItem.plus || 0,
-                        variance: parsedItem.variance || 0,
-                        durability: parsedItem.durability || 0,
-                        quantity: parsedItem.quantity || 1,
-                    });
-                } else {
-                    rejectedCount++;
-                    if (parsedItem?.id && parsedItem.id >= 1000000) {
-                        rejectedIds.push(idHex);
-                    }
-                    console.log(`   [ITEM ${i}] ⚠️ REJECTED: idValid=${parsedItem?.id > 0 && parsedItem?.id < 1000000} slotValid=${slot >= 0 && slot < maxSlots + 13} dup=${seenSlots.has(slot)}`);
-                }
-            }
-
-            if (rejectedCount > 0) {
-                console.warn(`⚠️  [CHAR_DATA] ${rejectedCount}/${itemCount} items rechazados. IDs inválidos: [${rejectedIds.join(', ')}]`);
-            }
-            console.log(`✅ [CHAR_DATA] ${inventory.length}/${itemCount} items aceptados para enviar al frontend`);
-            console.log(' ');
-
-            // Guardar inventario y enviar al frontend
-            this.inventory = inventory;
-
-            // Guardar stats para usar en handlePositionUpdate (0x3020)
-            this._pendingPlayerInfo = {
-                level,
-                hp,
-                mp,
-                refObjId: modelId,
-                playerName: 'Player',
-            };
-
-            if (this.session && this.session.wsSession) {
-                const goldToSend = gold || 0;
-                Logger.info(`[CHAR_DATA] Sending INVENTORY_DATA to frontend: ${inventory.length} items, maxSlots=${maxSlots}`, 'PacketRouter');
-                this.session.wsSession.sendEvent(`📦 Inventario: ${inventory.length} items`, {
-                    type: 'INVENTORY_DATA',
-                    inventory,
-                    inventoryAvatar: [],
-                    maxSlots,
-                    gold: goldToSend,
-                });
-            }
-        } catch (e) {
-            Logger.warn(`[CHAR_DATA] 0x3013 parse error: ${e.message}`, 'PacketRouter');
         }
     }
 
@@ -818,59 +590,39 @@ export default class PacketRouter {
         }
     }
 
+    setExpectedUniqueId(uid) {
+        this._expectedUniqueId = uid;
+        Logger.info(`[PacketRouter] Expected uniqueId set to ${uid}`, 'PacketRouter');
+    }
+
     /**
-     * 0x3020 - SERVER_CONFIRMSPAWN: El servidor envía la posición inicial del jugador.
-     * Payload: region(2) + X(2) + Y(2) + Z(2) = 8 bytes (ushort LE)
-     * 
-     * RESPUESTA REQUERIDA: 0x34C5 (CLIENT_CONFIRMSPAWN).
-     * El 0x34B6 ya se envió en handleCharDataEnd (0x34A6).
-     * Sin 0x34C5, el servidor cierra la conexión ~240ms después.
+     * 0x3020 - SERVER_AGENT_CHARACTER_CELESTIAL_POSITION
+     * Payload: UniqueID(4) + MoonPosition(2) + Hour(1) + Minute(1) = 8 bytes
+     * NO es posición del jugador. La posición real viene del 0x3013.
      */
     handlePositionUpdate(rawPacket, packetObj) {
         const payload = rawPacket.slice(6);
         const hex = payload.toString('hex').toUpperCase();
-        Logger.info(`[POS] 0x3020 payload=${hex} (${payload.length}B)`, 'PacketRouter');
+        Logger.info(`[CELESTIAL] 0x3020 payload=${hex} (${payload.length}B)`, 'PacketRouter');
 
         if (payload.length >= 8) {
-            // Formato VSRO 0x3020 (8 bytes):
-            // [2] region (uint16 LE)
-            // [2] posX (uint16 LE) — coordenada X en mundo
-            // [2] posY (uint16 LE) — coordenada Y en mundo
-            // [2] posZ (uint16 LE) — coordenada Z en mundo
-            const region = payload.readUInt16LE(0);
-            const posX = payload.readUInt16LE(2);
-            const posY = payload.readUInt16LE(4);
-            const posZ = payload.readUInt16LE(6);
-
-            Logger.info(`[POS] Region=${region} X=${posX} Y=${posY} Z=${posZ}`, 'PacketRouter');
-
-            const info = this._pendingPlayerInfo || {};
-            const level = info.level || '?';
-            const hp = info.hp || '?';
-            const mp = info.mp || '?';
-            const refObjId = info.refObjId || 0;
-            const playerName = info.playerName || 'Player';
-
-            if (this.session && this.session.wsSession) {
-                this.session.wsSession.sendEvent(`🌟 Jugador en mundo: Lv${level} HP=${hp} MP=${mp} Region=${region} (${posX},${posY})`, {
-                    type: 'PLAYER_SPAWNED',
-                    region, posX, posY, posZ,
-                    level, hp, mp, refObjId, playerName,
-                });
-                this.session.wsSession.sendStatus('IN_GAME', {
-                    region, posX, posY, posZ,
-                    level, hp, mp, refObjId, playerName,
-                });
+            const uniqueId = payload.readUInt32LE(0);
+            const moonPosition = payload.readUInt16LE(4);
+            const hour = payload.readUInt8(6);
+            const minute = payload.readUInt8(7);
+            Logger.info(`[CELESTIAL] UniqueID=${uniqueId} MoonPos=${moonPosition} Time=${hour}:${minute}`, 'PacketRouter');
+            // Comparar con el uniqueId del character data
+            if (this._expectedUniqueId) {
+                Logger.info(`[CELESTIAL] Comparación: uniqueId del paquete=${uniqueId} expectedUniqueId=${this._expectedUniqueId}`, 'PacketRouter');
             }
         }
-
-        this._pendingPlayerInfo = null;
     }
 
     /**
      * 0x3015 - SERVER_SINGLESPAWN: El servidor spawna una entidad individual (incluyendo al jugador).
-     * Cuando recibimos nuestro propio spawn, también debemos confirmar.
-     */
+ * 0x3015 - SERVER_SINGLESPAWN: El servidor spawna una entidad individual (incluyendo al jugador).
+ * Cuando recibimos nuestro propio spawn, también debemos confirmar.
+ */
     handleSingleSpawn(rawPacket, packetObj) {
         const payload = rawPacket.slice(6);
         const hex = payload.slice(0, Math.min(payload.length, 64)).toString('hex').toUpperCase();

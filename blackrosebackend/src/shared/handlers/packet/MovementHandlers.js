@@ -38,8 +38,8 @@ export function createMovementHandlers(router) {
                                         !(Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001)) {
                                         const region = xs | (ys << 8);
                                         const posX = Math.round(xo / 10);
-                                        const posY = Math.round(zo / 10);
-                                        const posZ = Math.round(yo / 10);
+                                        const posZ = Math.round(zo / 10);
+                                        const posY = Math.round(yo / 10);
                                         Logger.info('[0x3020] Position found in CHAR_DATA buffer: region=' + region + ' x=' + xo.toFixed(1) + ' z=' + zo.toFixed(1) + ' y=' + yo.toFixed(1), 'Movement');
                                         // Solo actualizar _pendingPlayerInfo con la posición real
                                         // El frontend ya recibió la posición vía PLAYER_POSITION_INIT desde CharDataHandlers
@@ -73,21 +73,19 @@ export function createMovementHandlers(router) {
                 const isMyMove = (entityUniqueId === router._playerUniqueId);
                 if (hasDestination === 1) {
                     const dstRegion = payload.readUInt16LE(pos); pos += 2;
+                    // Orden en 0xB021: X, Z, Y (short * 10)
                     const dstX = payload.readInt16LE(pos); pos += 2;
-                    const dstY = payload.readInt16LE(pos); pos += 2;
                     const dstZ = payload.readInt16LE(pos); pos += 2;
+                    const dstY = payload.readInt16LE(pos); pos += 2;
                     const eventName = isMyMove ? 'PLAYER_MOVE_CONFIRMED' : 'ENTITY_MOVE';
                     if (router.session && router.session.wsSession) {
                         router.session.wsSession.sendEvent('', {
                             type: eventName, uniqueId: entityUniqueId, dstRegion,
-                            dstX: Math.round(dstX / 10), dstY: Math.round(dstY / 10), dstZ: Math.round(dstZ / 10),
+                            dstX: Math.round(dstX / 10), dstZ: Math.round(dstZ / 10), dstY: Math.round(dstY / 10),
                         });
                     }
-                    // Solo enviar PLAYER_MOVED si NO es el player (entidades)
-                    // Para el player, 0xB021 es la confirmación del destino de su propio movimiento
-                    // El frontend ya está interpolando hacia ese destino, no necesita saltar
                     if (!isMyMove) {
-                        router._lastPlayerPosY = Math.round(dstZ / 10);
+                        router._lastPlayerPosY = Math.round(dstY / 10);
                     }
                 }
             } catch (e) {

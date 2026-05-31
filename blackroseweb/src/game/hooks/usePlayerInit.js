@@ -1,14 +1,14 @@
-import { useState } from "react";
-import { worldToRender } from "../utils/geo.js";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { GAME_CONSTANTS } from "../../shared/constants/gameConstants.js";
+
+const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
+const MAP_CANVAS_H = GAME_CONSTANTS.MAP.CANVAS_H;
 
 /**
  * Hook para procesar los datos iniciales del jugador y el personaje.
- * Solo se ejecuta UNA VEZ al montar el componente.
+ * Se re-ejecuta cuando wsPlayer cambia (llega PLAYER_POSITION_INIT, PLAYER_UPDATE, etc).
  * 
- * IMPORTANTE: NO usa API REST. NO usa fallbacks por raza. NO usa useMemo.
  * La posición viene EXCLUSIVAMENTE del WebSocket (opcodes del gameserver).
- * Si el WebSocket aún no tiene posición, todo queda en null
- * hasta que llegue PLAYER_POSITION_INIT o PLAYER_UPDATE.
  */
 export function usePlayerInit({ user, character, constants, wsPlayer }) {
   const { UNITS_PER_REGION, WALK_SPEED_WU } = constants || {};
@@ -17,53 +17,78 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
   const rid = Number(character?.refObjId || 0);
   const race = ((rid >= 14722 && rid <= 15000) || (rid >= 1919 && rid <= 1930)) ? "euro" : "china";
 
-  // Posición: SOLO desde WebSocket — si no hay datos, todo null
-  let worldX = null, worldZ = null;
-  let regionX = null, regionZ = null;
-  let posX = null, posZ = null;
-  let renderX = null, renderZ = null;
-  let posY = null;
+  // Referencia para saber si es la primera posición recibida
+  const hasPositionRef = useRef(false);
+  // Referencia para preservar cameraWX/cameraWZ entre actualizaciones
+  const cameraRef = useRef({ wx: null, wz: null });
 
-  if (wsPlayer && wsPlayer.region != null && wsPlayer.posX != null) {
-    const regionId = Number(wsPlayer.region);
-    regionX = regionId & 0xFF;
-    regionZ = (regionId >> 8) & 0xFF;
-    posX = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posX)));
-    posZ = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posZ || 0)));
-    worldX = ((regionX - 135) * UNITS_PER_REGION) + posX;
-    worldZ = ((regionZ - 92) * UNITS_PER_REGION) + posZ;
-    posY = wsPlayer?.posY ?? null;
-    const render = worldToRender(worldX, worldZ);
-    renderX = render.renderX;
-    renderZ = render.renderZ;
-  }
-
+  // Estado del jugador
   const [players, setPlayers] = useState({
     me: {
       id: "me",
       charName: character?.name || user?.username,
-      worldX,
-      worldZ,
-      cameraWX: worldX,
-      cameraWZ: worldZ,
+      worldX: null, worldZ: null,
+      cameraWX: null, cameraWZ: null,
       isFollowingPlayer: true,
-      renderX,
-      renderZ,
-      hp: wsPlayer?.hp || 0,
-      maxHp: wsPlayer?.maxHp || 0,
-      mp: wsPlayer?.mp || 0,
-      maxMp: wsPlayer?.maxMp || 0,
+      renderX: null, renderZ: null,
+      hp: 0, maxHp: 0, mp: 0, maxMp: 0,
       level: character?.level || 1,
       race,
-      regionX,
-      regionZ,
-      posX,
-      posZ,
-      posY,
+      regionX: null, regionZ: null,
+      posX: null, posZ: null, posY: null,
       angle: 0, moving: false, speed: WALK_SPEED_WU,
-      timestamp: Date.now(),
     }
   });
+
+  // Sincronizar wsPlayer → players (sin causar loops)
+  useEffect(() => {
+    if (!wsPlayer || wsPlayer.region == null || wsPlayer.posX == null) return;
+
+    const regionId = Number(wsPlayer.region);
+    const regionX = regionId & 0xFF;
+    const regionZ = (regionId >> 8) & 0xFF;
+    const posX = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posX)));
+    const posZ = Math.max(0, Math.min(UNITS_PER_REGION, Number(wsPlayer.posZ || 0)));
+    const worldX = ((regionX - 135) * UNITS_PER_REGION) + posX;
+    const worldZ = ((regionZ - 92) * UNITS_PER_REGION) + posZ;
+    const posY = wsPlayer?.posY ?? null;
+
+    // Inicializar cámara solo la primera vez
+    if (!hasPositionRef.current) {
+      hasPositionRef.current = true;
+      cameraRef.current = { wx: worldX, wz: worldZ };
+    }
+
+    setPlayers((prev) => {
+      const prevMe = prev?.me;
+      // Preservar cameraWX/cameraWZ y estado de movimiento
+      return {
+        me: {
+          id: "me",
+          charName: character?.name || user?.username,
+          worldX, worldZ,
+          cameraWX: prevMe?.cameraWX ?? cameraRef.current.wx ?? worldX,
+          cameraWZ: prevMe?.cameraWZ ?? cameraRef.current.wz ?? worldZ,
+          isFollowingPlayer: true,
+          renderX: MAP_CANVAS_W / 2,
+          renderZ: MAP_CANVAS_H / 2,
+          hp: wsPlayer?.hp ?? prevMe?.hp ?? 0,
+          maxHp: wsPlayer?.maxHp ?? prevMe?.maxHp ?? 0,
+          mp: wsPlayer?.mp ?? prevMe?.mp ?? 0,
+          maxMp: wsPlayer?.maxMp ?? prevMe?.maxMp ?? 0,
+          level: wsPlayer?.level ?? prevMe?.level ?? character?.level ?? 1,
+          race,
+          regionX, regionZ,
+          posX, posZ, posY,
+          angle: prevMe?.angle ?? 0,
+          moving: prevMe?.moving ?? false,
+          speed: WALK_SPEED_WU,
+          _targetWX: prevMe?._targetWX,
+          _targetWZ: prevMe?._targetWZ,
+        }
+      };
+    });
+  }, [wsPlayer, character, UNITS_PER_REGION, WALK_SPEED_WU, race]);
 
   return { players, setPlayers, race };
 }

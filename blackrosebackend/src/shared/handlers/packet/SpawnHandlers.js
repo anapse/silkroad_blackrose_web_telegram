@@ -1,5 +1,5 @@
 // Handlers for Spawn opcodes: 0x34B5, 0x3015, 0x3016, 0x3017, 0x3018, 0x3019, 0xB023
-// Extracted from PacketRouter.js
+// Basado en la documentación de DaxterSoul (elitepvpers)
 import Logger from '../../utils/Logger.js';
 
 export function createSpawnHandlers(router) {
@@ -15,36 +15,161 @@ export function createSpawnHandlers(router) {
         return 'OTHER';
     }
 
-    function parseCharSpawn(data, pos) {
-        const before = pos;
-        if (pos + 6 > data.length) return pos;
-        const volume = data.readUInt8(pos); pos += 1;
-        const rank = data.readUInt8(pos); pos += 1;
-        const icons = data.readUInt8(pos); pos += 1;
-        const unknown1 = data.readUInt8(pos); pos += 1;
-        const maxSlots = data.readUInt8(pos); pos += 1;
-        const itemCount = data.readUInt8(pos); pos += 1;
-        for (let j = 0; j < itemCount && pos + 4 <= data.length; j++) { pos += 4; if (pos < data.length) pos += 1; }
+    function getTypeID1(refObjId) {
+        // Extraer TypeID1 del RefObjID según la estructura Silkroad
+        // TypeID1: 1=BIONIC, 3=ITEM, 4=PORTAL
+        if (refObjId >= 1 && refObjId < 20000) return 1; // BIONIC
+        if (refObjId >= 30000 && refObjId < 40000) return 1; // NPC
+        if (refObjId >= 40000 && refObjId < 50000) return 3; // ITEM
+        if (refObjId >= 50000 && refObjId < 60000) return 4; // PORTAL
+        return 1; // Default BIONIC
+    }
+
+    /**
+     * Parsea los datos comunes de posición/movimiento/state de un spawn BIONIC
+     * según la estructura de DaxterSoul para 0x3015/0x3019
+     */
+    function parseBionicSpawn(data, pos, entity) {
+        // Después de los datos específicos del tipo, viene:
+        // 4   uint    UniqueID
+        // 2   ushort  Position.RegionID
+        // 4   float   Position.X
+        // 4   float   Position.Y
+        // 4   float   Position.Z
+        // 2   ushort  Position.Angle
+
+        if (pos + 20 > data.length) return pos;
+        entity.uniqueId = data.readUInt32LE(pos); pos += 4;
+        const regionId = data.readUInt16LE(pos); pos += 2;
+        const xF = data.readFloatLE(pos); pos += 4;
+        const yF = data.readFloatLE(pos); pos += 4;
+        const zF = data.readFloatLE(pos); pos += 4;
+        const angle = data.readUInt16LE(pos); pos += 2;
+
+        entity.region = regionId;
+        entity.regionX = regionId & 0xFF;
+        entity.regionZ = (regionId >> 8) & 0xFF;
+
+        // Convertir floats a unidades enteras (escala 1/10)
+        entity.posX = Math.round(xF / 10);
+        entity.posY = Math.round(yF / 10);
+        entity.posZ = Math.round(zF / 10);
+        entity.angle = angle;
+
+        // Movement
         if (pos + 2 > data.length) return pos;
-        const maxAvatarSlots = data.readUInt8(pos); pos += 1;
-        const avatarCount = data.readUInt8(pos); pos += 1;
-        for (let j = 0; j < avatarCount && pos + 5 <= data.length; j++) { pos += 4; pos += 1; }
-        if (pos >= data.length) return pos;
-        const mask = data.readUInt8(pos); pos += 1;
-        if (mask === 1 && pos + 6 <= data.length) {
-            pos += 4;
+        const hasDest = data.readUInt8(pos); pos += 1;
+        const moveType = data.readUInt8(pos); pos += 1;
+        entity.hasDestination = hasDest === 1;
+        entity.moveType = moveType;
+
+        if (entity.hasDestination) {
+            if (pos + 2 > data.length) return pos;
+            const destRegion = data.readUInt16LE(pos); pos += 2;
+            entity.destRegion = destRegion;
+            if (regionId < 32767) {
+                // World
+                if (pos + 6 > data.length) return pos;
+                entity.destX = data.readInt16LE(pos); pos += 2;
+                entity.destY = data.readInt16LE(pos); pos += 2;
+                entity.destZ = data.readInt16LE(pos); pos += 2;
+            } else {
+                // Dungeon
+                if (pos + 12 > data.length) return pos;
+                entity.destX = data.readInt32LE(pos); pos += 4;
+                entity.destY = data.readInt32LE(pos); pos += 4;
+                entity.destZ = data.readInt32LE(pos); pos += 4;
+            }
+        } else {
+            if (pos + 3 > data.length) return pos;
+            entity.moveSource = data.readUInt8(pos); pos += 1;
+            entity.moveAngle = data.readUInt16LE(pos); pos += 2;
+        }
+
+        // State
+        if (pos + 16 > data.length) return pos;
+        entity.lifeState = data.readUInt8(pos); pos += 1;     // 1=Alive, 2=Dead
+        entity.unkByte0 = data.readUInt8(pos); pos += 1;
+        entity.motionState = data.readUInt8(pos); pos += 1;   // 0=None, 2=Walking, 3=Running, 4=Sitting
+        entity.status = data.readUInt8(pos); pos += 1;        // 0=None, 1=Hwan, etc
+        entity.walkSpeed = data.readFloatLE(pos); pos += 4;
+        entity.runSpeed = data.readFloatLE(pos); pos += 4;
+        entity.hwanSpeed = data.readFloatLE(pos); pos += 4;
+
+        // Buffs
+        if (pos + 1 > data.length) return pos;
+        const buffCount = data.readUInt8(pos); pos += 1;
+        entity.buffCount = buffCount;
+        entity.buffs = [];
+        for (let i = 0; i < buffCount && pos + 8 <= data.length; i++) {
+            const skillId = data.readUInt32LE(pos); pos += 4;
+            const duration = data.readUInt32LE(pos); pos += 4;
+            const buff = { skillId, duration };
+            // Verificar si tiene IsCreator (atfe = 1701213281)
+            if (pos + 1 <= data.length && (skillId === 1701213281 || i === buffCount - 1)) {
+                // No podemos saber si tiene IsCreator sin el skill real
+            }
+            entity.buffs.push(buff);
+        }
+
+        return pos;
+    }
+
+    /**
+     * Parsea los datos de CHARACTER dentro del spawn (TypeID2 == 1)
+     */
+    function parseCharacterSpawnData(data, pos, entity) {
+        if (pos + 4 > data.length) return pos;
+        const scale = data.readUInt8(pos); pos += 1;
+        const hwanLevel = data.readUInt8(pos); pos += 1;
+        const pvpCape = data.readUInt8(pos); pos += 1;
+        const autoInvestExp = data.readUInt8(pos); pos += 1;
+        entity.scale = scale;
+        entity.hwanLevel = hwanLevel;
+        entity.pvpCape = pvpCape;
+        entity.autoInvestExp = autoInvestExp;
+
+        // Inventory
+        if (pos + 2 > data.length) return pos;
+        const invSize = data.readUInt8(pos); pos += 1;
+        const invCount = data.readUInt8(pos); pos += 1;
+        entity.inventorySize = invSize;
+        entity.inventoryItems = [];
+        for (let i = 0; i < invCount && pos + 4 <= data.length; i++) {
+            const refItemId = data.readUInt32LE(pos); pos += 4;
+            const item = { refItemId };
+            // Si es equip (TypeID1=3, TypeID2=1) tiene OptLevel
+            if (refItemId >= 1 && refItemId < 10000 && pos < data.length) {
+                // Simplificado: siempre leemos 1 byte extra
+                // item.optLevel = data.readUInt8(pos); pos += 1;
+            }
+            entity.inventoryItems.push(item);
+        }
+
+        // AvatarInventory
+        if (pos + 2 > data.length) return pos;
+        const avSize = data.readUInt8(pos); pos += 1;
+        const avCount = data.readUInt8(pos); pos += 1;
+        entity.avatarSize = avSize;
+        for (let i = 0; i < avCount && pos + 4 <= data.length; i++) {
+            pos += 4; // refItemId
+        }
+
+        // Mask
+        if (pos + 1 > data.length) return pos;
+        const hasMask = data.readUInt8(pos); pos += 1;
+        entity.hasMask = hasMask === 1;
+        if (entity.hasMask && pos + 6 <= data.length) {
+            pos += 4; // mask.RefObjID
             const maskType = data.readUInt8(pos); pos += 1;
             if (maskType !== 0 && pos + 1 <= data.length) {
                 const maskCount = data.readUInt8(pos); pos += 1;
-                for (let j = 0; j < maskCount && pos + 4 <= data.length; j++) { pos += 4; }
+                for (let i = 0; i < maskCount && pos + 4 <= data.length; i++) {
+                    pos += 4;
+                }
             }
         }
-        if (pos + 12 > data.length) return pos;
-        const walkingSpeed = data.readUInt32LE(pos); pos += 4;
-        const runningSpeed = data.readUInt32LE(pos); pos += 4;
-        const berserkerSpeed = data.readUInt32LE(pos); pos += 4;
-        const after = pos;
-        console.log('[CHAR SPAWN]', JSON.stringify({ before, after, bytesConsumed: after - before, volume, rank, maxSlots, itemCount, walkingSpeed, runningSpeed }));
+
         return pos;
     }
 
@@ -177,6 +302,7 @@ export function createSpawnHandlers(router) {
                     const posZ_sql = Math.round(zOffset / 10);
                     const posY_sql = Math.round(yOffset / 10);
                     if (router.session && router.session.wsSession) {
+                        console.log('[SPAWN] Enviando ENTITY_SPAWN al frontend', JSON.stringify({ uniqueId, refObjId, entityType, region }));
                         router.session.wsSession.sendEvent('', {
                             type: 'ENTITY_SPAWN', uniqueId, refObjId, entityType,
                             region, posX: posX_sql, posY: posY_sql, posZ: posZ_sql,
@@ -228,9 +354,9 @@ export function createSpawnHandlers(router) {
             if (!router._initPosSent && region > 0 && region < 40000 && router.session && router.session.wsSession) {
                 router._initPosSent = true;
                 router.session.wsSession.sendEvent('Posicion inicial (desde 0xB023)', {
-                    type: 'PLAYER_POSITION_INIT', region, posX: Math.round(xF), posY: Math.round(zF), posZ: Math.round(yF),
+                    type: 'PLAYER_POSITION_INIT', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF),
                 });
-                Logger.info('[0xB023] PLAYER_POSITION_INIT: region=' + region + ' x=' + xF.toFixed(1) + ' y=' + zF.toFixed(1) + ' z=' + yF.toFixed(1), 'Spawn');
+                Logger.info('[0xB023] PLAYER_POSITION_INIT: region=' + region + ' x=' + xF.toFixed(1) + ' z=' + zF.toFixed(1) + ' y=' + yF.toFixed(1), 'Spawn');
             }
             if (router.session && router.session.wsSession) {
                 router.session.wsSession.sendEvent('', { type: 'PLAYER_UPDATE', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF) });

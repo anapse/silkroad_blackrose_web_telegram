@@ -99,22 +99,6 @@ export function GameSocketProvider({ children }) {
         const msg = JSON.parse(event.data);
 
         if (msg.type === "STATUS") {
-          // CHARACTER_SELECT_OK con posición del 0xB001
-          if (msg.status === "CHARACTER_SELECT_OK" && msg.detail) {
-            const d = msg.detail;
-            if (d.region !== undefined) {
-              console.log('[CHARACTER_SELECT_OK]', JSON.stringify({ region: d.region, posX: d.posX, posZ: d.posZ, posY: d.posY }));
-              setPlayerState((prev) => ({
-                ...prev,
-                region: d.region,
-                // Usar null en vez de prev.posX para que el useEffect en GameContainer
-                // pueda distinguir "sin posición" de "posición en 0"
-                posX: d.posX !== null && d.posX !== undefined ? d.posX : null,
-                posZ: d.posZ !== null && d.posZ !== undefined ? d.posZ : null,
-                posY: d.posY !== null && d.posY !== undefined ? d.posY : null,
-              }));
-            }
-          }
           return;
         }
         if (msg.type === "CAPTCHA") return;
@@ -152,16 +136,60 @@ export function GameSocketProvider({ children }) {
           if (msg.detail?.type === "PLAYER_SPAWNED" || msg.status === "IN_GAME") {
             const d = msg.detail || {};
             console.log('[WS RECEIVE]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
-            setPlayerState((prev) => ({ ...prev, hp: d.hp ?? prev.hp, maxHp: d.maxHp ?? d.hp ?? prev.maxHp, mp: d.mp ?? prev.mp, maxMp: d.maxMp ?? d.mp ?? prev.maxMp, level: d.level ?? prev.level, sp: d.sp ?? prev.sp, exp: d.exp ?? prev.exp, posX: d.posX ?? prev.posX, posY: d.posY ?? prev.posY, posZ: d.posZ ?? prev.posZ, region: d.region ?? prev.region }));
+            // No sobrescribir posición si ya se recibió PLAYER_POSITION_INIT
+            setPlayerState((prev) => {
+              const alreadyHasPos = prev.region != null && prev.region > 0;
+              console.log('[WS RECEIVE] alreadyHasPos=' + alreadyHasPos + ' prev.region=' + prev.region + ' d.region=' + d.region);
+              return {
+                ...prev,
+                hp: d.hp ?? prev.hp,
+                maxHp: d.maxHp ?? d.hp ?? prev.maxHp,
+                mp: d.mp ?? prev.mp,
+                maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
+                level: d.level ?? prev.level,
+                sp: d.sp ?? prev.sp,
+                exp: d.exp ?? prev.exp,
+                posX: alreadyHasPos ? prev.posX : (d.posX ?? prev.posX),
+                posY: alreadyHasPos ? prev.posY : (d.posY ?? prev.posY),
+                posZ: alreadyHasPos ? prev.posZ : (d.posZ ?? prev.posZ),
+                region: alreadyHasPos ? prev.region : (d.region ?? prev.region),
+              };
+            });
           }
 
           if (msg.detail?.type === "ENTITY_SPAWN") {
-            setEntities((prev) => ({ ...prev, [msg.detail.uniqueId]: msg.detail }));
+            const d = msg.detail;
+            // Descomprimir region en regionX/regionZ (igual que en usePlayerInit)
+            const regionId = Number(d.region) || 0;
+            const regionX = regionId & 0xFF;
+            const regionZ = (regionId >> 8) & 0xFF;
+            setEntities((prev) => ({
+              ...prev,
+              [d.uniqueId]: {
+                ...d,
+                regionX,
+                regionZ,
+              }
+            }));
           }
 
           if (msg.detail?.type === "ENTITY_MOVE") {
             const d = msg.detail;
-            setEntities((prev) => { if (!prev[d.uniqueId]) return prev; return { ...prev, [d.uniqueId]: { ...prev[d.uniqueId], region: d.dstRegion, posX: d.dstX, posZ: d.dstZ } }; });
+            setEntities((prev) => {
+              if (!prev[d.uniqueId]) return prev;
+              const regionId = Number(d.dstRegion) || 0;
+              return {
+                ...prev,
+                [d.uniqueId]: {
+                  ...prev[d.uniqueId],
+                  region: d.dstRegion,
+                  regionX: regionId & 0xFF,
+                  regionZ: (regionId >> 8) & 0xFF,
+                  posX: d.dstX,
+                  posZ: d.dstZ,
+                }
+              };
+            });
           }
 
           if (msg.detail?.type === "ENTITY_DESPAWN") {
@@ -170,15 +198,32 @@ export function GameSocketProvider({ children }) {
           }
 
           if (msg.detail?.type === "PLAYER_MOVE_CONFIRMED") {
-            const d = msg.detail;
-            // No actualizar region/posX/posZ — el frontend ya está interpolando
-            // hacia ese destino. Actualizar solo si es necesario para referencia.
-            // setPlayerState((prev) => ({ ...prev, region: d.dstRegion ?? prev.region, posX: d.dstX ?? prev.posX, posZ: d.dstZ ?? prev.posZ }));
+            // No actualizar posición aquí — el useGameLoop ya está interpolando
+            // hacia _targetWX/_targetWZ. PLAYER_MOVE_CONFIRMED solo confirma
+            // que el servidor aceptó el destino, no cambia la posición actual.
           }
 
           if (msg.detail?.type === "PLAYER_UPDATE") {
             const d = msg.detail;
-            setPlayerState((prev) => ({ ...prev, hp: d.hp ?? prev.hp, maxHp: d.maxHp ?? prev.maxHp, mp: d.mp ?? prev.mp, maxMp: d.maxMp ?? d.mp ?? prev.maxMp, exp: d.exp ?? prev.exp, level: d.level ?? prev.level, sp: d.sp ?? prev.sp, region: d.region ?? prev.region, posX: d.posX ?? prev.posX, posY: d.posY ?? prev.posY, posZ: d.posZ ?? prev.posZ }));
+            setPlayerState((prev) => {
+              // Solo actualizar posición si la región coincide con la actual
+              // (evita que 0xB023 de un movimiento lejano sobreescriba la posición)
+              const sameRegion = d.region == null || d.region === prev.region;
+              return {
+                ...prev,
+                hp: d.hp ?? prev.hp,
+                maxHp: d.maxHp ?? prev.maxHp,
+                mp: d.mp ?? prev.mp,
+                maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
+                exp: d.exp ?? prev.exp,
+                level: d.level ?? prev.level,
+                sp: d.sp ?? prev.sp,
+                region: d.region ?? prev.region,
+                posX: sameRegion ? (d.posX ?? prev.posX) : prev.posX,
+                posY: sameRegion ? (d.posY ?? prev.posY) : prev.posY,
+                posZ: sameRegion ? (d.posZ ?? prev.posZ) : prev.posZ,
+              };
+            });
           }
 
           if (msg.detail?.type === "INVENTORY_DATA") {

@@ -174,47 +174,46 @@ class WebSocketSession {
               }
 
               // Construir paquete 0x7021 (CLIENT_MOVEMENT)
-              // Estructura según RSBot Player.MoveTo:
-              // [1] byte: 1 (movement type)
-              // [2] ushort: region
-              // Si NO dungeon:
-              //   [2] short: xOffset * 10  (int16)
-              //   [2] short: zOffset * 10  (int16)
-              //   [2] short: yOffset * 10  (int16)
-              // Si dungeon:
-              //   [4] int: xOffset * 10  (int32)
-              //   [4] int: zOffset * 10  (int32)
-              //   [4] int: yOffset * 10  (int32)
+              // Estructura de DaxterSoul/Nocturne33:
+              // [1] byte: type (0=sky click, 1=normal click)
+              // [1] byte: xSector (regionX)
+              // [1] byte: ySector (regionZ)
+              // [2] short: xOffset * 10 (int16) - offset local en X
+              // [2] short: zOffset * 10 (int16) - offset local en Z (eje norte-sur)
+              // [2] short: yOffset * 10 (int16) - altura
               const PacketWriter = require('../../packet/PacketWriter');
               const p = new PacketWriter();
-              p.writeByte(0x01); // movement type
-              p.writeWord(region);
 
-              // El servidor espera offset * 10 como int16
-              // ORDEN VSRO: X, Y (altitud), Z (eje norte-sur)
-              // NO es X, Z, Y como estaba antes.
+              // Extraer sectores del region ID
+              const regionX = region & 0xFF;
+              const regionZ = (region >> 8) & 0xFF;
+
               const x10 = Math.round((posX || 0) * 10);
               const z10 = Math.round((posZ || 0) * 10);
               const y10 = Math.round(altY * 10);
 
-              Logger.info(`[MOVE] Sending 0x7021 region=${region} x10=${x10} y10=${y10} z10=${z10}`, 'WebSocketSession');
+              Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) x10=${x10} z10=${z10} y10=${y10}`, 'WebSocketSession');
+
+              p.writeByte(0x01); // movement type (1 = normal click)
+              p.writeByte(regionX); // xSector
+              p.writeByte(regionZ); // ySector
 
               if (region >= 32768) {
                 // Dungeon - int32
                 p.writeDWord(x10);
-                p.writeDWord(y10);
                 p.writeDWord(z10);
+                p.writeDWord(y10);
               } else {
-                // Normal world - int16 (short) — orden VSRO: X, Y, Z
+                // Normal world - int16 (short)
                 const bx = Buffer.alloc(2);
                 bx.writeInt16LE(x10, 0);
                 p.writeWord(bx.readUInt16LE(0));
-                const by = Buffer.alloc(2);
-                by.writeInt16LE(y10, 0);
-                p.writeWord(by.readUInt16LE(0));
                 const bz = Buffer.alloc(2);
                 bz.writeInt16LE(z10, 0);
                 p.writeWord(bz.readUInt16LE(0));
+                const by = Buffer.alloc(2);
+                by.writeInt16LE(y10, 0);
+                p.writeWord(by.readUInt16LE(0));
               }
 
               const rawPayload = p.getBytes();

@@ -1,8 +1,12 @@
 import { useEffect } from "react";
+import { GAME_CONSTANTS } from "../../shared/constants/gameConstants.js";
 import { getDistance } from "../utils/math.js";
 import { directionToAngle } from "../utils/vectors.js";
 import { worldToRender } from "../utils/geo.js";
 import { isWorldInsideCity, cityForPlayer, cityPortalAtWorld, nudgeWorldOutsideCity } from "../utils/movement.js";
+
+// Acceso directo para evitar problemas con desestructuración asíncrona
+const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
 
 /**
  * Hook que gestiona el ciclo de vida de la lógica del juego (Movimiento, Cámaras, Transiciones).
@@ -38,6 +42,9 @@ export function useGameLoop({
 
         for (const id in next) {
           const p = next[id];
+
+          // Saltar si no hay posición
+          if (p.worldX == null || p.worldZ == null) continue;
 
           // ── MOVIMIENTO: velocidad real en WU/s con delta time ──
           if (p._targetWX !== undefined) {
@@ -116,17 +123,33 @@ export function useGameLoop({
             }
           }
 
-          // ── SINCRONIZACIÓN DE RENDER (siempre ejecutar, incluso sin _targetWX) ──
-          const r = worldToRender(p.worldX, p.worldZ);
+          // ── SINCRONIZACIÓN DE RENDER ──
+          // Sistema centrado: recuperar regionX/Z desde worldX/Z
           const rX = Math.floor(p.worldX / R) + 135;
           const rZ = Math.floor(p.worldZ / R) + 92;
 
-          if (p.renderX !== r.renderX || p.renderZ !== r.renderZ || p.regionX !== rX || p.regionZ !== rZ) {
-            p.renderX = r.renderX;
-            p.renderZ = r.renderZ;
-            p.regionX = rX;
-            p.regionZ = rZ;
-            dirty = true;
+          if (p.id === 'me') {
+            // El "me" siempre está centrado en el canvas
+            const center = MAP_CANVAS_W / 2;
+            if (p.renderX !== center || p.renderZ !== center || p.regionX !== rX || p.regionZ !== rZ) {
+              p.renderX = center;
+              p.renderZ = center;
+              p.regionX = rX;
+              p.regionZ = rZ;
+              dirty = true;
+            }
+          } else {
+            // Otros players se renderizan relativos al jugador
+            const r = worldToRender(p.worldX, p.worldZ, p.cameraWX, p.cameraWZ);
+            const newRX = isNaN(r.renderX) ? p.renderX : r.renderX;
+            const newRZ = isNaN(r.renderZ) ? p.renderZ : r.renderZ;
+            if (p.renderX !== newRX || p.renderZ !== newRZ || p.regionX !== rX || p.regionZ !== rZ) {
+              p.renderX = newRX;
+              p.renderZ = newRZ;
+              p.regionX = rX;
+              p.regionZ = rZ;
+              dirty = true;
+            }
           }
           if (p.moving) dirty = true;
         }
