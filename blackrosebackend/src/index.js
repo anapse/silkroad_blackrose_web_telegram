@@ -7,9 +7,9 @@ Object.values(links).forEach(link => {
     app.use(link);
 });
 
-app.listen(app.get("port"), '0.0.0.0', () => {
+const server = app.listen(app.get("port"), '0.0.0.0', () => {
     console.log("server on port", app.get("port"));
 });
 
-// Iniciar el Gateway WebSocket-TCP para Silkroad
-startGateway();
+// Iniciar el Gateway WebSocket-TCP para Silkroad (comparte puerto con Express)
+startGateway(server);

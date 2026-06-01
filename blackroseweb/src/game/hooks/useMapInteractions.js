@@ -19,7 +19,7 @@ export function useMapInteractions({
   constants,
   wsSend  // ← función para enviar WebSocket al backend
 }) {
-  const { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU, UNITS_PER_REGION } = constants;
+  const { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU, UNITS_PER_REGION, TILE_RADIUS } = constants;
 
   const handleMapClick = (e, zoomLevel) => {
     if (camera.dragRef.current.moved) return;
@@ -38,9 +38,17 @@ export function useMapInteractions({
       if (!isCity) {
         const clPx = Math.max(0, Math.min(MAP_CANVAS_W, px));
         const clPy = Math.max(0, Math.min(MAP_CANVAS_H, py));
-        const w = renderToWorld(clPx, clPy, me.worldX, me.worldZ);
-        clickWX = w.worldX;
-        clickWZ = w.worldZ;
+        // Convertir píxel del canvas a coordenadas del mundo
+        // El tile central (TILE_RADIUS, TILE_RADIUS) empieza en (TILE_RADIUS*R, TILE_RADIUS*R)
+        // y corresponde a la región donde está el jugador
+        const tileOrigin = TILE_RADIUS * R;
+        const localX = clPx - tileOrigin;  // offset local en píxeles
+        const localZ = tileOrigin - clPy;
+        // La región del jugador
+        const playerRX = Math.floor(me.worldX / R);
+        const playerRZ = Math.floor(me.worldZ / R);
+        clickWX = (playerRX * R) + localX;
+        clickWZ = (playerRZ * R) + localZ;
 
         // Validación de Región (sistema centrado → absoluto)
         const rX = Math.floor(clickWX / R) + 135;

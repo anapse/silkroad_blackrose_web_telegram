@@ -11,9 +11,11 @@ import cors from 'cors'
 import bodyParse from 'body-parser'
 import { ENV } from '../shared/config/env.js';
 
+const PORT = Number(process.env.PORT) || 100;
+
 const app = express();
 app.use(cors());
 app.use(bodyParse.json());
 
-app.set('port', ENV.PORT)
+app.set('port', PORT)
 export default app

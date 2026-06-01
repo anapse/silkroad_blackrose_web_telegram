@@ -7,6 +7,7 @@ import { isWorldInsideCity, cityForPlayer, cityPortalAtWorld, nudgeWorldOutsideC
 
 // Acceso directo para evitar problemas con desestructuración asíncrona
 const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
+const TILE_RADIUS = GAME_CONSTANTS.MAP.TILE_RADIUS;
 
 /**
  * Hook que gestiona el ciclo de vida de la lógica del juego (Movimiento, Cámaras, Transiciones).
@@ -45,6 +46,19 @@ export function useGameLoop({
 
           // Saltar si no hay posición
           if (p.worldX == null || p.worldZ == null) continue;
+
+          // ── DETENER POR COLISIÓN ──
+          // Si el servidor detuvo al jugador (PLAYER_STOPPED), cancelar interpolación
+          if (p._stopped) {
+            if (p._targetWX !== undefined) {
+              p._targetWX = undefined;
+              p._targetWZ = undefined;
+              p.moving = false;
+              if (id === "me") setTargetWorld(null);
+              dirty = true;
+            }
+            delete p._stopped;
+          }
 
           // ── MOVIMIENTO: velocidad real en WU/s con delta time ──
           if (p._targetWX !== undefined) {
@@ -129,11 +143,17 @@ export function useGameLoop({
           const rZ = Math.floor(p.worldZ / R) + 92;
 
           if (p.id === 'me') {
-            // El "me" siempre está centrado en el canvas
-            const center = MAP_CANVAS_W / 2;
-            if (p.renderX !== center || p.renderZ !== center || p.regionX !== rX || p.regionZ !== rZ) {
-              p.renderX = center;
-              p.renderZ = center;
+            // Renderizar al jugador en la posición correcta del canvas
+            // tile central empieza en TILE_RADIUS * R = 960
+            // offset local = worldX - (rX - 135) * R
+            const tileOrigin = TILE_RADIUS * R;
+            const localX = p.worldX - (rX - 135) * R;
+            const localZ = p.worldZ - (rZ - 92) * R;
+            const newRX = tileOrigin + localX;
+            const newRZ = tileOrigin - localZ;
+            if (p.renderX !== newRX || p.renderZ !== newRZ || p.regionX !== rX || p.regionZ !== rZ) {
+              p.renderX = newRX;
+              p.renderZ = newRZ;
               p.regionX = rX;
               p.regionZ = rZ;
               dirty = true;

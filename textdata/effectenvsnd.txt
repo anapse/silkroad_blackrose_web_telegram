@@ -1,0 +1,834 @@
+<1>	µµÀû¸¶À»				
+	"EasternEurope_Field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind04.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"donhwang_wind03.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"donhwang_wind05.wav"	20~40
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"night_insect01.wav"	40~50
+					
+					
+<1>	µ·È²´øÁ¯				
+	"Donwhang_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+	<2>	¹ã			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+					
+<1>	µ·È²´øÁ¯ÀÌº¥Æ®				
+	"Donwhang_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+	<2>	¹ã			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+					
+<1>	Áø½ÃÈ²¸ª12				
+	"Donwhang_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+					
+<1>	Áø½ÃÈ²¸ª3				
+	"Jinsi_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	35~50
+			<3>	"dd_bobble_02.wav"	50~55
+			<3>	"dd_wind_01.wav"  	50~55
+			<3>	"donhwang_wind05.wav"  	15~25
+					
+	<2>	¹ã			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	35~50
+			<3>	"dd_bobble_02.wav"	50~55
+			<3>	"dd_wind_01.wav"  	50~55
+			<3>	"donhwang_wind05.wav"  	15~25
+					
+					
+<1>	Áø½ÃÈ²¸ª456				
+	"Jinsi_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"donhwang_wind02.wav"  	40~41
+			<3>	"donhwang_wind05.wav"  	50~51
+			<3>	"dd_bobble_01.wav"	30~60
+			<3>	"hotan_night_02.wav"	15~40
+			<3>	"nattlesnake.wav"	40~60
+					
+	<2>	¹ã			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"donhwang_wind02.wav"  	40~41
+			<3>	"donhwang_wind05.wav"  	50~51
+			<3>	"dd_bobble_01.wav"	30~60
+			<3>	"hotan_night_02.wav"	15~40
+			<3>	"nattlesnake.wav"	40~60
+					
+					
+<1>	¿ä»õ_Àå¾È				
+	"Jangan_Town.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¿ä»õ_Àå¾ÈÇÊµå				
+	"Jangan_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+					
+<1>	¿ä»õ_ºñÀû				
+	"Jangan_Town.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¿ä»õ_ºñÀûÇÊµå				
+	"Jangan_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¿ä»õ_È£Åº				
+	"Hotan_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¿ä»õ_È£ÅºÇÊµå				
+	"Hotan_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	Àå¾È				
+	"Jangan_Town.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	Àå¾ÈÇÊµå				
+	"Jangan_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird03.wav"	20~40
+			<3>	"day_bird04.wav"	25~30
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	µ·È²				
+	"Donwhang_Town.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	µ·È²ÇÊµå				
+	"Donwhang_Field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	È£Åº				
+	"Hotan_Field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	È£ÅºÇÊµå				
+	"Hotan_Field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	Ä«¶óÄÚ¶÷				
+	"Karakoram_Field.ogg"				
+	<2>	³·			
+			<3>	"kk_day.wav"	0~0
+			<3>	"kk_wind01.wav"  	10~30
+			<3>	"kk_wind03.wav"  	20~50
+			<3>	"kk_wind02.wav"  	30~55
+			<3>	"kk_wind04.wav"  	15~50
+					
+	<2>	¹ã			
+			<3>	"kk_day.wav"	0~0
+			<3>	"kk_wind01.wav"  	10~30
+			<3>	"kk_wind03.wav"  	20~50
+			<3>	"kk_wind02.wav"  	30~55
+			<3>	"kk_wind04.wav"  	15~50
+					
+					
+<1>	Å¸Å¬¶ó¸¶Ä­				
+	"taklamakan_field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+					
+<1>	·ÎÅ©»ê				
+	"MtRok_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"night_wind.wav"	10~20
+			<3>	"donhwang_wind04.wav"	15~40
+			<3>	"night_bird03.wav"	20~30
+			<3>	"donhwang_wind03.wav"	30~40
+			<3>	"night_bird04.wav"	40~50
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind03.wav"	30~40
+			<3>	"day_bird03.wav"	20~25
+					
+					
+<1>	ÄÜ½ºÅºÆ¼³ëÇÃ				
+	"EasternEurope_Town.ogg"				
+	<2>	³·			
+			<3>	"day_bird02.wav"	20~30
+			<3>	"Bell Towel 3.wav"	15~40
+			<3>	"day_bird04.wav"	20~30
+			<3>	"day_bird05.wav"	40~50
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"night_wind.wav"	10~20
+			<3>	"donhwang_wind04.wav"	20~25
+			<3>	"night_insect02.wav"	30~40
+			<3>	"day_bird03.wav"	35~40
+					
+					
+<1>	µ¿À¯·´				
+	"EasternEurope_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird02.wav"	10~15
+			<3>	"day_bird04.wav"	20~30
+			<3>	"donhwang_wind03.wav"	25~40
+			<3>	"night_bird04.wav"	30~40
+			<3>	"day_bird05.wav"	40~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird03.wav"	10~25
+			<3>	"night_bird04.wav"	15~30
+			<3>	"Dd_Mainwind.wav"	25~45
+			<3>	"night_insect02.wav"	30~40
+					
+<1>	¼Ò¾Æ½Ã¾ÆÇØº¯				
+	"AsiaMinor_Field.ogg"				
+	<2>	³·			
+			<3>	"sea_wave1.wav"	0~0
+			<3>	"seabird2.wav"	20~35
+			<3>	"day_wind02.wav"	30~40
+			<3>	"seabird.wav"	35~40
+					
+	<2>	¹ã			
+			<3>	"sea_wave1.wav"	0~0
+			<3>	"seabird2.wav"	10~25
+			<3>	"day_wind02.wav"	20~30
+			<3>	"seabird.wav"	15~30
+					
+					
+<1>	¼Ò¾Æ½Ã¾Æ				
+	"AsiaMinor_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird04.wav"	20~35
+			<3>	"day_wind02.wav"	30~40
+			<3>	"night_bird04.wav"	35~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_insect01.wav"	10~25
+			<3>	"donhwang_wind05.wav"	20~30
+			<3>	"donhwang_wind01.wav"	15~30
+					
+					
+<1>	»ç¸¶¸£Ä­Æ®				
+	"CentralAsia_Town.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"night_insect01.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	Áß¾Ó¾Æ½Ã¾Æ				
+	"CentralAsia_Field.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"night_insect01.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+					
+<1>	¾Ë·º»êµå¸®¾Æ				
+	"Egypt_Town_Alexandria1.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+					
+<1>	µ¨Å¸Áö¿ª				
+	"Egypt_Field_Delta.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¿Õ°¡ÀÇ°è°î				
+	"Egypt_Field_KingsValley.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	ÆøÇ³°ú±¸¸§ÀÇ»ç¸·				
+	"Egypt_Field_Stormdesert.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	ÆÄ¶ó¿À_³ëºñ½º				
+	"Egypt_Dungeon_Pharaoh.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+					
+<1>	ÆÄ¶ó¿À_ÀÍ½ºÆÛÆ®				
+	"Egypt_Dungeon_Pharaoh.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+<1>	ÆÄ¶ó¿À_¸¶½ºÅÍ				
+	"Egypt_Dungeon_Pharaoh.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+<1>	½ÅÀü				
+	"Egypt_Dungeon_Temple.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"day_wind.wav"	0~0
+			<3>	"hotan_night_02.wav"	20~30
+			<3>	"donhwang_wind04.wav"	40~55
+			<3>	"hotan_night_02.wav"	30~40
+					
+					
+<1>	¹èÆ²¾Æ·¹³ª_Á¡¼öÀü				
+	"Battlearena_1.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¹èÆ²¾Æ·¹³ª_±ê¹ßÀü				
+	"Battlearena_1.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	¹èÆ²¾Æ·¹³ª_Á¡·ÉÀü				
+	"Battlearena_1.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+					
+<1>	¹èÆ²¾Æ·¹³ª_Á¡·ÉÀü				
+	"Battlearena_1.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+					
+<1>	¹èÆ²¾Æ·¹³ª_GNGWC				
+	"Battlearena_1.ogg"				
+	<2>	³·			
+			<3>	"day_wind.wav"	0~0
+			<3>	"day_bird01.wav"	15~30
+			<3>	"day_bird02.wav"	10~20
+			<3>	"day_bird05.wav"	10~20
+			<3>	"day_wind02.wav"	20~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+					
+<1>	¿ä»õÀüº¸»óÀÎ´ø				
+	"Donwhang_Dungeon.ogg"				
+	<2>	³·			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+	<2>	¹ã			
+			<3>	"dd_mainwind.wav"	0~0
+			<3>	"dd_bobble_01.wav"	15~20
+			<3>	"dd_bobble_02.wav"	15~20
+			<3>	"dd_wind_01.wav"  	10~15
+			<3>	"dd_wind_02.wav"  	10~15
+					
+<1>	ÀØÇôÁø¼¼°è_Åä±Í¸¶À»				
+	"Forgotten_Togui.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind01.wav"	15~25
+			<3>	"donhwang_wind02.wav"	30~50
+			<3>	"donhwang_wind03.wav"	20~30
+			<3>	"donhwang_wind04.wav"	10~20
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	ÀØÇôÁø¼¼°è_È­¿°»ê				
+	"Forgotten_Flame.ogg"				
+	<2>	³·			
+			<3>	"Hellfire.wav"	0~0
+			<3>	"donhwang_wind05.wav"	30~40
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"donhwang_wind05.wav"	30~40
+					
+<1>	ÀØÇôÁø¼¼°è_³­ÆÄ¼±				
+	"Forgotten_Ghost.ogg"				
+	<2>	³·			
+			<3>	"OceanA.wav"	0~0
+			<3>	"sea_wave1.wav"	15~25
+					
+	<2>	¹ã			
+			<3>	"OceanA.wav"	0~0
+			<3>	"sea_wave1.wav"	15~25
+					
+<1>	ÀÌº¥Æ®_À¯·É»ç³É				
+	"event_ghost.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_bird01.wav"	20~35
+			<3>	"night_bird02.wav"	15~40
+			<3>	"night_bird03.wav"	40~50
+			<3>	"night_bird04.wav"	40~50
+			<3>	"night_bird05.wav"	30~40
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+<1>	À¯ÇÇÅ×¸£½ÅÀüA				
+	"jupiter_a.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+					
+<1>	À¯ÇÇÅ×¸£½ÅÀüA_º¸½º1				
+	"jupiter_a_boss.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+					
+<1>	À¯ÇÇÅ×¸£½ÅÀüA_º¸½º2				
+	"jupiter_a_boss.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+					
+<1>	À¯ÇÇÅ×¸£½ÅÀüA_º¸½º3				
+	"jupiter_a_boss.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+					
+<1>	À¯ÇÇÅ×¸£½ÅÀüB				
+	"jupiter_a_boss.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+					
+<1>	°Å¿ïÀÇÂ÷¿ø				
+	"jupiter_field.ogg"				
+	<2>	³·			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50
+					
+	<2>	¹ã			
+			<3>	"night_wind.wav"	0~0
+			<3>	"night_insect01.wav"	10~20
+			<3>	"night_insect02.wav"	10~20
+			<3>	"night_insect03.wav"	30~50

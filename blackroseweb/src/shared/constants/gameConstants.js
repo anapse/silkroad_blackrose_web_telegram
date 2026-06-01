@@ -7,13 +7,17 @@
 
 export const GAME_CONSTANTS = {
   MAP: {
-    MIN_X: 45,
-    MAX_X: 116,
-    MIN_Z: 57,
-    MAX_Z: 101,
-    BASE_TILE_SZ: 256,
+    MIN_X: 26,
+    MAX_X: 252,
+    MIN_Z: 37,
+    MAX_Z: 126,
+    BASE_TILE_SZ: 192,
     TILE_STEP: 1,
     UNITS_PER_REGION: 192,
+    WORLD_SCALE: 192 / 192,
+    TILE_RADIUS: 5,
+    CANVAS_W: (2 * 5 + 1) * 192,
+    CANVAS_H: (2 * 5 + 1) * 192,
   },
   MOVEMENT: {
     WALK_SPEED_WU: 0.375,
@@ -48,9 +52,4 @@ export const GAME_CONSTANTS = {
   }
 };
 
-// Derived values
-const { MIN_X, MAX_X, MIN_Z, MAX_Z, BASE_TILE_SZ, TILE_STEP, UNITS_PER_REGION } = GAME_CONSTANTS.MAP;
-
-GAME_CONSTANTS.MAP.WORLD_SCALE = (TILE_STEP * UNITS_PER_REGION) / BASE_TILE_SZ;
-GAME_CONSTANTS.MAP.CANVAS_W = ((MAX_X - MIN_X) / TILE_STEP + 1) * BASE_TILE_SZ;
-GAME_CONSTANTS.MAP.CANVAS_H = ((MAX_Z - MIN_Z) / TILE_STEP + 1) * BASE_TILE_SZ;
+// (Derived values are now inline in the MAP object above)

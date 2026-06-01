@@ -3,6 +3,7 @@ $PacketWriter.writeByte = PacketWriter$writeByte;
 $PacketWriter.writeWord = PacketWriter$writeWord;
 $PacketWriter.writeDWord = PacketWriter$writeDWord;
 $PacketWriter.writeQWord = PacketWriter$writeQWord;
+$PacketWriter.writeBytes = PacketWriter$writeBytes;
 $PacketWriter.writeString = PacketWriter$writeString;
 $PacketWriter.writeFloat = PacketWriter$writeFloat;
 $PacketWriter.setPointer = PacketWriter$setPointer;
@@ -15,7 +16,7 @@ function PacketWriter(buffer) {
     this.buffer = new Buffer(4096);
     this.pointer = 0;
     this.size = 0;
-    
+
     if (buffer) {
         buffer.copy(this.buffer);
         this.pointer = this.size = buffer.length;
@@ -62,9 +63,15 @@ function PacketWriter$writeQWord(qw) {
     }
 }
 
+function PacketWriter$writeBytes(buffer) {
+    buffer.copy(this.buffer, this.pointer);
+    this.pointer += buffer.length;
+    if (this.pointer > this.size) this.size = this.pointer;
+}
+
 function PacketWriter$writeString(str) {
     var test = new String(str);
-    var len = test.length; 
+    var len = test.length;
     this.writeWord(len);
     this.buffer.write(str, this.pointer);
     if (this.pointer == this.size) {

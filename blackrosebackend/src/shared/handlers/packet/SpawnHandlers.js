@@ -290,7 +290,8 @@ export function createSpawnHandlers(router) {
                     const moving = data.readUInt8(pos); pos += 1;
                     const running = data.readUInt8(pos); pos += 1;
                     const entityType = getEntityType(refObjId);
-                    if (entityType === 'CHAR') { pos = parseCharSpawn(data, pos); }
+                    // parseCharSpawn no está implementado - se salta datos extra de CHAR
+                    // if (entityType === 'CHAR') { pos = parseCharSpawn(data, pos); }
                     router.spawnStats.group++;
                     const isPlayerSpawn = ((refObjId === router._pendingPlayerInfo?.refObjId) || (uniqueId === router._expectedUniqueId));
                     // Log para debug de spawn
@@ -350,16 +351,29 @@ export function createSpawnHandlers(router) {
             const zF = payload.readFloatLE(10);
             const yF = payload.readFloatLE(14);
             const angle = payload.readInt16LE(18);
+
+            const isPlayer = (uniqueId === router._playerUniqueId) || (uniqueId === router._expectedUniqueId);
+
             // Enviar PLAYER_POSITION_INIT si es la primera posición válida que llega
             if (!router._initPosSent && region > 0 && region < 40000 && router.session && router.session.wsSession) {
                 router._initPosSent = true;
                 router.session.wsSession.sendEvent('Posicion inicial (desde 0xB023)', {
-                    type: 'PLAYER_POSITION_INIT', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF),
+                    type: 'PLAYER_POSITION_INIT', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF / 10),
                 });
                 Logger.info('[0xB023] PLAYER_POSITION_INIT: region=' + region + ' x=' + xF.toFixed(1) + ' z=' + zF.toFixed(1) + ' y=' + yF.toFixed(1), 'Spawn');
             }
+
             if (router.session && router.session.wsSession) {
-                router.session.wsSession.sendEvent('', { type: 'PLAYER_UPDATE', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF) });
+                if (isPlayer) {
+                    // El servidor detuvo al jugador (colisión o llegada a destino)
+                    // Enviar PLAYER_STOPPED para que el frontend detenga la interpolación
+                    router.session.wsSession.sendEvent('', {
+                        type: 'PLAYER_STOPPED', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF / 10),
+                        uniqueId,
+                    });
+                } else {
+                    router.session.wsSession.sendEvent('', { type: 'PLAYER_UPDATE', region, posX: Math.round(xF), posZ: Math.round(zF), posY: Math.round(yF / 10) });
+                }
             }
         }
     };

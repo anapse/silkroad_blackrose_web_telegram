@@ -23,7 +23,7 @@
  * - https://github.com/leolongvu/SilkroadLeoBot
  */
 
-const PacketReader = require('../../gamegateway/packet/PacketReader');
+const PacketReader = require('../../game/packet/PacketReader');
 
 export const OPCODES = {
     // ============================================================================

@@ -122,24 +122,15 @@ export function GameSocketProvider({ children }) {
             setPlayerState((prev) => ({ ...prev, region: d.region ?? prev.region, posX: d.posX ?? prev.posX, posZ: d.posZ ?? prev.posZ, posY: d.posY ?? prev.posY }));
           }
 
-          if (msg.detail?.type === "PLAYER_POSITION_INIT") {
+          if (msg.detail?.type === "PLAYER_UPDATE") {
             const d = msg.detail;
-            console.log('[PLAYER_POSITION_INIT]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
-            // Solo actualizar si la región es válida (no 0)
-            // Si region=0, el scanner no encontró posición y el frontend
-            // debe mantener su fallback por raza (usePlayerInit.js)
-            if (d.region && d.region > 0) {
-              setPlayerState((prev) => ({ ...prev, hp: prev.hp || 0, region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
-            }
-          }
-
-          if (msg.detail?.type === "PLAYER_SPAWNED" || msg.status === "IN_GAME") {
-            const d = msg.detail || {};
-            console.log('[WS RECEIVE]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
-            // No sobrescribir posición si ya se recibió PLAYER_POSITION_INIT
             setPlayerState((prev) => {
-              const alreadyHasPos = prev.region != null && prev.region > 0;
-              console.log('[WS RECEIVE] alreadyHasPos=' + alreadyHasPos + ' prev.region=' + prev.region + ' d.region=' + d.region);
+              // Nunca pisar posición válida con undefined
+              const newRegion = (d.region != null && d.region > 0) ? d.region : prev.region;
+              const newPosX = (d.posX != null) ? d.posX : prev.posX;
+              const newPosY = (d.posY != null) ? d.posY : prev.posY;
+              const newPosZ = (d.posZ != null) ? d.posZ : prev.posZ;
+
               return {
                 ...prev,
                 hp: d.hp ?? prev.hp,
@@ -149,10 +140,66 @@ export function GameSocketProvider({ children }) {
                 level: d.level ?? prev.level,
                 sp: d.sp ?? prev.sp,
                 exp: d.exp ?? prev.exp,
-                posX: alreadyHasPos ? prev.posX : (d.posX ?? prev.posX),
-                posY: alreadyHasPos ? prev.posY : (d.posY ?? prev.posY),
-                posZ: alreadyHasPos ? prev.posZ : (d.posZ ?? prev.posZ),
-                region: alreadyHasPos ? prev.region : (d.region ?? prev.region),
+                region: newRegion,
+                posX: newPosX,
+                posY: newPosY,
+                posZ: newPosZ,
+              };
+            });
+          }
+
+          if (msg.detail?.type === "PLAYER_STOPPED") {
+            const d = msg.detail;
+            // El servidor detuvo al jugador (colisión o llegada a destino)
+            // Actualizar posición y detener interpolación
+            if (d.region && d.region > 0) {
+              setPlayerState((prev) => ({
+                ...prev,
+                region: d.region,
+                posX: d.posX ?? prev.posX,
+                posY: d.posY ?? prev.posY,
+                posZ: d.posZ ?? prev.posZ,
+                _stopped: Date.now(),  // marca para que useGameLoop detenga interpolación
+              }));
+            }
+          }
+
+          if (msg.detail?.type === "PLAYER_POSITION_INIT") {
+            const d = msg.detail;
+            console.log('[PLAYER_POSITION_INIT]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
+            // Solo actualizar si la región es válida (no 0)
+            // Si region=0, el scanner no encontró posición y el frontend
+            // debe mantener su fallback por raza (usePlayerInit.js)
+            if (d.region && d.region > 0) {
+              setPlayerState((prev) => {
+                const next = { ...prev, hp: prev.hp || 0, region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ };
+                return next;
+              });
+            }
+          }
+
+          if (msg.detail?.type === "PLAYER_SPAWNED" || msg.status === "IN_GAME") {
+            const d = msg.detail || {};
+            setPlayerState((prev) => {
+              // Nunca pisar posición válida con undefined
+              const newRegion = (d.region != null && d.region > 0) ? d.region : prev.region;
+              const newPosX = (d.posX != null) ? d.posX : prev.posX;
+              const newPosY = (d.posY != null) ? d.posY : prev.posY;
+              const newPosZ = (d.posZ != null) ? d.posZ : prev.posZ;
+
+              return {
+                ...prev,
+                hp: d.hp ?? prev.hp,
+                maxHp: d.maxHp ?? d.hp ?? prev.maxHp,
+                mp: d.mp ?? prev.mp,
+                maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
+                level: d.level ?? prev.level,
+                sp: d.sp ?? prev.sp,
+                exp: d.exp ?? prev.exp,
+                region: newRegion,
+                posX: newPosX,
+                posY: newPosY,
+                posZ: newPosZ,
               };
             });
           }

@@ -71,23 +71,76 @@ export function createMovementHandlers(router) {
                 const entityUniqueId = payload.readUInt32LE(pos); pos += 4;
                 const hasDestination = payload.readUInt8(pos); pos += 1;
                 const isMyMove = (entityUniqueId === router._playerUniqueId);
+
+                let dstRegion = 0, dstX = 0, dstZ = 0, dstY = 0;
+                let hasSource = false, srcRegion = 0, srcX = 0, srcZ = 0, srcY = 0;
+                let angle = 0;
+
                 if (hasDestination === 1) {
-                    const dstRegion = payload.readUInt16LE(pos); pos += 2;
-                    // Orden en 0xB021: X, Z, Y (short * 10)
-                    const dstX = payload.readInt16LE(pos); pos += 2;
-                    const dstZ = payload.readInt16LE(pos); pos += 2;
-                    const dstY = payload.readInt16LE(pos); pos += 2;
-                    const eventName = isMyMove ? 'PLAYER_MOVE_CONFIRMED' : 'ENTITY_MOVE';
-                    if (router.session && router.session.wsSession) {
-                        router.session.wsSession.sendEvent('', {
-                            type: eventName, uniqueId: entityUniqueId, dstRegion,
-                            dstX: Math.round(dstX / 10), dstZ: Math.round(dstZ / 10), dstY: Math.round(dstY / 10),
-                        });
-                    }
-                    if (!isMyMove) {
-                        router._lastPlayerPosY = Math.round(dstY / 10);
+                    dstRegion = payload.readUInt16LE(pos); pos += 2;
+                    // Orden en 0xB021 según Silkroad Fusion CharacterMoving: X, Z(altitud), Y(norte-sur)
+                    dstX = payload.readInt16LE(pos); pos += 2;
+                    dstY = payload.readInt16LE(pos); pos += 2;
+                    dstZ = payload.readInt16LE(pos); pos += 2;
+                } else {
+                    // Sin destino, puede tener ángulo
+                    const moveType = payload.readUInt8(pos); pos += 1; // 0=spinning, 1=sky/key-walking
+                }
+
+                // Parsear hasSource (siempre presente según RSBot MotionFromPacket)
+                if (pos < payload.length) {
+                    hasSource = payload.readUInt8(pos) === 1; pos += 1;
+                    if (hasSource && pos + 6 <= payload.length) {
+                        srcRegion = payload.readUInt16LE(pos); pos += 2;
+                        const isDungeon = (srcRegion >= 32768);
+                        if (isDungeon) {
+                            // Dungeon: XOffset=ReadInt()/10, ZOffset=ReadFloat(), YOffset=ReadInt()/10
+                            if (pos + 12 <= payload.length) {
+                                srcX = payload.readInt32LE(pos) / 10; pos += 4;
+                                srcZ = payload.readFloatLE(pos); pos += 4;
+                                srcY = payload.readInt32LE(pos) / 10; pos += 4;
+                            }
+                        } else {
+                            // Normal: XOffset=ReadShort()/10, ZOffset=ReadFloat(), YOffset=ReadShort()/10
+                            if (pos + 8 <= payload.length) {
+                                srcX = payload.readInt16LE(pos) / 10; pos += 2;
+                                srcZ = payload.readFloatLE(pos); pos += 4;
+                                srcY = payload.readInt16LE(pos) / 10; pos += 2;
+                            }
+                        }
                     }
                 }
+
+                // Parsear angle (último campo)
+                if (pos + 2 <= payload.length) {
+                    angle = payload.readInt16LE(pos); pos += 2;
+                }
+
+                // Enviar evento al frontend
+                if (router.session && router.session.wsSession) {
+                    const eventName = isMyMove ? 'PLAYER_MOVE_CONFIRMED' : 'ENTITY_MOVE';
+                    router.session.wsSession.sendEvent('', {
+                        type: eventName, uniqueId: entityUniqueId,
+                        dstRegion: hasDestination ? dstRegion : undefined,
+                        dstX: hasDestination ? Math.round(dstX / 10) : undefined,
+                        dstZ: hasDestination ? Math.round(dstZ / 10) : undefined,
+                        dstY: hasDestination ? Math.round(dstY / 10) : undefined,
+                        hasSource,
+                        srcRegion: hasSource ? srcRegion : undefined,
+                        srcX: hasSource ? Math.round(srcX) : undefined,
+                        srcZ: hasSource ? Math.round(srcZ) : undefined,
+                        srcY: hasSource ? Math.round(srcY) : undefined,
+                        angle,
+                    });
+                }
+
+                // Actualizar última altitud conocida (usar dstY que ahora es altitud real)
+                if (isMyMove && dstY > 0) {
+                    router._lastPlayerPosY = Math.round(dstY / 10);
+                } else if (isMyMove && srcY > 0) {
+                    router._lastPlayerPosY = Math.round(srcY);
+                }
+
             } catch (e) {
                 Logger.warn('[MOVE] Error parsing 0xB021: ' + e.message, 'Movement');
             }

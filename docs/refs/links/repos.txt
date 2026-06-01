@@ -3,5 +3,6 @@ https://github.com/JellyBitz/xBot-WinForms
 https://github.com/svalencius/silkroad-bot
 https://github.com/myildirimofficial/RSBot
 https://github.com/tarekwiz/SilkroadBot
+ https://github.com/JellyBitz/xSROMap
     
     

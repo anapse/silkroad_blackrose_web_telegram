@@ -4,10 +4,16 @@
 
 /**
  * Calcula el ángulo en grados basado en un vector de dirección (dx, dz).
- * Silkroad usa un sistema donde el ángulo se mide desde el eje X.
+ * Silkroad: 0° = Norte, 90° = Este, 180° = Sur, 270° = Oeste
+ * El triángulo ▶ apunta a la derecha (Este = 90°) sin rotar.
+ * atan2(dx, dz) da 0 cuando dz<0 (norte), 180 cuando dz>0 (sur)
  */
 export const directionToAngle = (dx, dz) => {
-  return Math.atan2(-dz, dx) * (180 / Math.PI);
+  // Ángulo en grados: 0° = Norte (dz negativo), 90° = Este (dx positivo)
+  let angle = Math.atan2(dx, -dz) * (180 / Math.PI);
+  // Normalizar a 0-360
+  if (angle < 0) angle += 360;
+  return angle;
 };
 
 /**

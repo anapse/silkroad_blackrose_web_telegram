@@ -240,9 +240,10 @@ export default function GameContainer({ user, character }) {
   });
 
   const hasPlayerPosition =
-    playerState?.region != null &&
-    playerState?.posX != null &&
-    playerState?.posZ != null;
+    players?.me?.worldX != null &&
+    !isNaN(players?.me?.worldX) &&
+    players?.me?.worldZ != null &&
+    !isNaN(players?.me?.worldZ);
 
   const isWorldReady = hasPlayerPosition;
 
@@ -365,7 +366,7 @@ export default function GameContainer({ user, character }) {
     insideCity,
     CITY_REGIONS,
     REGIONS,
-    constants: { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU },
+    constants: { MAP_CANVAS_W, MAP_CANVAS_H, R, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU, TILE_RADIUS, UNITS_PER_REGION },
     wsSend: send
   });
 
@@ -536,10 +537,12 @@ export default function GameContainer({ user, character }) {
         if (!isCity && me.worldX != null && me.worldZ != null) {
           const vp = world.viewportRef.current;
           const cv = world.canvasRef.current;
-          const targetWX = me.isFollowingPlayer ? me.worldX : me.cameraWX;
-          const targetWZ = me.isFollowingPlayer ? me.worldZ : me.cameraWZ;
           
-          const { renderX: cRX, renderZ: cRZ } = worldToRender(targetWX, targetWZ, me.cameraWX, me.cameraWZ);
+          // Usar renderX/renderZ del jugador (que ahora refleja su posición real en el canvas)
+          // Si está siguiendo al jugador, usar me.renderX; si no, calcular desde cameraWX
+          const cRX = me.isFollowingPlayer ? me.renderX : (TILE_RADIUS * UNITS_PER_REGION) + (me.cameraWX - (Math.floor(me.cameraWX / UNITS_PER_REGION) * UNITS_PER_REGION));
+          const cRZ = me.isFollowingPlayer ? me.renderZ : (TILE_RADIUS * UNITS_PER_REGION) - (me.cameraWZ - (Math.floor(me.cameraWZ / UNITS_PER_REGION) * UNITS_PER_REGION));
+          
           if (isNaN(cRX) || isNaN(cRZ)) { worldOffsetX = 0; worldOffsetY = 0; }
           else {
             const vpW = vp ? vp.offsetWidth : window.innerWidth;
@@ -749,22 +752,23 @@ export default function GameContainer({ user, character }) {
                     top: p.renderZ,
                     width: 0,
                     height: 0,
-                    transformOrigin: '0 0',
-                    transform: `rotate(${p.angle ?? 0}deg)`,
                     zIndex: 1000,
                     pointerEvents: 'none',
                     overflow: 'visible',
                   }}>
                     <span style={{
                       position: 'absolute',
-                      left: p.id === 'me' ? '-6px' : '-3px',
-                      top:  p.id === 'me' ? '-6px' : '-3px',
-                      fontSize: p.id === 'me' ? '12px' : '6px',
-                      lineHeight: 1,
-                      color: p.id === 'me' ? '#ffff00' : (p.race === 'euro' ? '#88aaff' : '#ff5555'),
-                      textShadow: '0 0 3px #000, 0 0 6px #000',
+                      left: p.id === 'me' ? '-8px' : '-4px',
+                      top:  p.id === 'me' ? '-8px' : '-4px',
+                      width: p.id === 'me' ? '16px' : '8px',
+                      height: p.id === 'me' ? '16px' : '8px',
                       userSelect: 'none',
-                    }}>▶</span>
+                      display: 'inline-block',
+                      transformOrigin: 'center center',
+                      transform: `rotate(${p.angle ?? 0}deg)`,
+                    }}>
+                      <img src="/mm_sign_character.png" alt="" style={{width:'100%', height:'100%', display:'block', pointerEvents:'none', transform:'rotate(-90deg)'}} />
+                    </span>
                   </div>
                 );
               })}

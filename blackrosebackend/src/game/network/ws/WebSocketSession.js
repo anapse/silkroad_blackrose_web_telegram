@@ -192,28 +192,31 @@ class WebSocketSession {
               const z10 = Math.round((posZ || 0) * 10);
               const y10 = Math.round(altY * 10);
 
-              Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) x10=${x10} z10=${z10} y10=${y10}`, 'WebSocketSession');
+              Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) x10=${x10} y10=${y10} z10=${z10}`, 'WebSocketSession');
 
               p.writeByte(0x01); // movement type (1 = normal click)
+              // Según silkroad-bot y Movement.cs (docs/refs): xSector e ySector como bytes separados
+              // NO como ushort combinado. El servidor espera [xSec][ySec], no [regionId].
               p.writeByte(regionX); // xSector
               p.writeByte(regionZ); // ySector
 
               if (region >= 32768) {
                 // Dungeon - int32
                 p.writeDWord(x10);
-                p.writeDWord(z10);
                 p.writeDWord(y10);
+                p.writeDWord(z10);
               } else {
                 // Normal world - int16 (short)
+                // Orden según Silkroad Fusion WalkTo: X, Z(altitud), Y(norte-sur)
                 const bx = Buffer.alloc(2);
                 bx.writeInt16LE(x10, 0);
                 p.writeWord(bx.readUInt16LE(0));
-                const bz = Buffer.alloc(2);
-                bz.writeInt16LE(z10, 0);
-                p.writeWord(bz.readUInt16LE(0));
                 const by = Buffer.alloc(2);
                 by.writeInt16LE(y10, 0);
                 p.writeWord(by.readUInt16LE(0));
+                const bz = Buffer.alloc(2);
+                bz.writeInt16LE(z10, 0);
+                p.writeWord(bz.readUInt16LE(0));
               }
 
               const rawPayload = p.getBytes();

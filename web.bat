@@ -1,4 +1,7 @@
 @echo off
-cd .\blackroseweb
-npm run host
-exit
+echo ==========================================
+echo Iniciando Black Rose Web (Frontend)...
+echo ==========================================
+cd /d "%~dp0\blackroseweb"
+call npm run host
+pause

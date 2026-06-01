@@ -354,7 +354,7 @@ function Security$handshake(packet) {
         this.key_array = this.keyTransformValue(this.m_value_A, this.m_value_B, this.m_value_K, helper.LOBYTE_(helper.LOWORD_(this.m_value_K)) & 0x03);
         this.m_blowfish.Initialize(this.key_array);
 
-        this.m_challenge_key = this.keyTransformValue(this.m_value_A, this.m_value_B, this.m_value_K, helper.LOBYTE_(helper.LOWORD_(this.m_value_K)) & 0x07);
+        this.m_challenge_key = this.keyTransformValue(this.m_value_A, this.m_value_B, this.m_value_K, helper.LOBYTE_(helper.LOWORD_(this.m_value_A)) & 0x07);
         this.m_challenge_key = this.m_blowfish.Encode(this.m_challenge_key, 0, 8).buff;
 
         this.m_handshake_blowfish_key = this.keyTransformValue(this.m_handshake_blowfish_key.readUInt32LE(0), this.m_handshake_blowfish_key.readUInt32LE(4), this.m_value_K, 0x3);
@@ -377,7 +377,7 @@ function Security$handshake(packet) {
 
         response = new PacketWriter();
         response.writeByte(tmp_flag);
-        response.writeQWord(this.m_challenge_key.readDoubleLE(0));
+        response.writeBytes(this.m_challenge_key);
 
         returnPackets.push({ opcode: 0x5000, packet: response, encrypted: false });
 
@@ -452,7 +452,7 @@ function Security$handshake(packet) {
             }
             response = new PacketWriter();
             response.writeDWord(this.m_value_B);
-            response.writeQWord(this.m_client_key.readDoubleLE(0));
+            response.writeBytes(this.m_client_key);
 
             returnPackets.push({ opcode: 0x5000, packet: response, encrypted: false });
 

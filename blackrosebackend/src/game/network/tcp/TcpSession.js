@@ -263,7 +263,10 @@ class TcpSession {
       session.lastOpcode = packetObj.opcode;
       session.lastPacketAt = packetObj.timestamp;
       session.lastRxAt = packetObj.timestamp;
-      Logger.info(`[RX] opcode=${packetObj.opcode} size=${packetObj.size} session=${this.sessionId}`, 'TcpSession');
+      // No loggear heartbeats (0x2002) para no saturar el log
+      if (packetObj.opcode !== '0x2002') {
+        Logger.info(`[RX] opcode=${packetObj.opcode} size=${packetObj.size} session=${this.sessionId}`, 'TcpSession');
+      }
       session.relayManager.handleTcpData(packetObj);
       const handled = this.packetRouter.route(processedPayload, packetObj);
       if (!handled) {
@@ -437,7 +440,10 @@ class TcpSession {
       session.lastOpcode = packetObj.opcode;
       session.lastPacketAt = packetObj.timestamp;
       session.lastTxAt = packetObj.timestamp;
-      Logger.info(`[TX] opcode=${packetObj.opcode} size=${packetObj.size} session=${this.sessionId}`, 'TcpSession');
+      // No loggear heartbeats (0x2002) para no saturar el log
+      if (packetObj.opcode !== '0x2002') {
+        Logger.info(`[TX] opcode=${packetObj.opcode} size=${packetObj.size} session=${this.sessionId}`, 'TcpSession');
+      }
       session.wsSession.sendPacket(packetObj);
     }
 

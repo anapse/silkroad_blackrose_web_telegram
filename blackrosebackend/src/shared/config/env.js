@@ -13,7 +13,7 @@ export const ENV = {
     SERVER_HOST: process.env.SERVER_HOST || 'GAME_HOST',
     GATEWAY_PORT: Number(process.env.GATEWAY_PORT || 15779),
     AGENT_PORT: Number(process.env.AGENT_PORT || 15882),
-    WS_PORT: Number(process.env.WS_PORT || 8081),
+    WS_PORT: Number(process.env.WS_PORT || 100),
 
     // ===== TIMEOS =====
     SERVER_TIMEOUT: Number(process.env.SERVER_TIMEOUT || 30000),

@@ -11,7 +11,7 @@
  * 4. Backend procesa y envía al cliente
  */
 
-import Logger from './utils/Logger.js';
+import Logger from '../shared/utils/Logger.js';
 import sessionManager from '../game/sessions/SessionManager.js';
 import { GAME_VERSION, LOCALE_VIETNAM, DEFAULT_SERVER_ID } from '../config/gameConstants.js';
 import { LoginRequestBuilder } from './builders/LoginRequestBuilder.js';
