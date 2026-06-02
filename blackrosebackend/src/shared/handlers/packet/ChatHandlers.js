@@ -15,6 +15,19 @@ export function createChatHandlers(router) {
                 let pos = 1;
 
                 switch (chatType) {
+                    case 0: // All (general)
+                    case 3: // All (general)
+                        if (payload.length >= 5) { uniqueID = payload.readUInt32LE(pos); pos += 4; }
+                        // Leer nombre (string con prefijo de longitud)
+                        if (pos + 2 <= payload.length) {
+                            const nameLen = payload.readUInt16LE(pos); pos += 2;
+                            if (nameLen > 0 && pos + nameLen <= payload.length) {
+                                charname = payload.toString('utf8', pos, pos + nameLen);
+                                pos += nameLen;
+                            }
+                        }
+                        message = payload.toString('utf8', pos);
+                        break;
                     case 1: // private received
                         if (payload.length >= 5) { uniqueID = payload.readUInt32LE(pos); pos += 4; }
                         message = payload.toString('utf8', pos);
@@ -22,10 +35,6 @@ export function createChatHandlers(router) {
                     case 2: // private sent
                         charname = payload.toString('utf8', pos, payload.indexOf(0, pos));
                         pos = payload.indexOf(0, pos) + 1;
-                        message = payload.toString('utf8', pos);
-                        break;
-                    case 3: // all chat
-                        if (payload.length >= 5) { uniqueID = payload.readUInt32LE(pos); pos += 4; }
                         message = payload.toString('utf8', pos);
                         break;
                     case 4: // party

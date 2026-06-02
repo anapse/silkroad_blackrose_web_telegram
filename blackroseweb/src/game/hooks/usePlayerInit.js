@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { GAME_CONSTANTS } from "../../shared/constants/gameConstants.js";
+import { playerToCanvas } from "../utils/geo.js";
 
 const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
 const MAP_CANVAS_H = GAME_CONSTANTS.MAP.CANVAS_H;
@@ -54,29 +55,33 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     const worldZ = ((regionZ - 92) * UNITS_PER_REGION) + posZ;
     const posY = wsPlayer?.posY ?? null;
 
+    // Detectar si el servidor detuvo al jugador (PLAYER_STOPPED)
+    const stopped = wsPlayer._stopped;
+
+    // LOG reducido (solo en cambios de región)
+    const isFromB021 = wsPlayer._fromB021;
+
     // Inicializar cámara solo la primera vez
     if (!hasPositionRef.current) {
       hasPositionRef.current = true;
       cameraRef.current = { wx: worldX, wz: worldZ };
     }
 
-    // Detectar si el servidor detuvo al jugador (PLAYER_STOPPED)
-    const stopped = wsPlayer._stopped;
-    
     setPlayers((prev) => {
       const prevMe = prev?.me;
+      
       // Preservar cameraWX/cameraWZ y estado de movimiento
       const me = {
         id: "me",
         charName: character?.name || user?.username,
         worldX, worldZ,
+        // NO actualizar cameraWX/WZ aquí — la cámara sigue suavemente en useGameLoop
         cameraWX: prevMe?.cameraWX ?? cameraRef.current.wx ?? worldX,
         cameraWZ: prevMe?.cameraWZ ?? cameraRef.current.wz ?? worldZ,
         isFollowingPlayer: true,
-        // renderX/Z: posición del jugador en píxeles del canvas
-        // tile central empieza en TILE_RADIUS * UNITS_PER_REGION = 960
-        renderX: (TILE_RADIUS * UNITS_PER_REGION) + posX,
-        renderZ: (TILE_RADIUS * UNITS_PER_REGION) - posZ,
+        // renderX/Z usando la función ESTÁNDAR centralizada en geo.js
+        renderX: playerToCanvas(regionX, regionZ, posX, posZ).canvasX,
+        renderZ: playerToCanvas(regionX, regionZ, posX, posZ).canvasZ,
         hp: wsPlayer?.hp ?? prevMe?.hp ?? 0,
         maxHp: wsPlayer?.maxHp ?? prevMe?.maxHp ?? 0,
         mp: wsPlayer?.mp ?? prevMe?.mp ?? 0,
@@ -88,16 +93,13 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
         angle: prevMe?.angle ?? 0,
         moving: prevMe?.moving ?? false,
         speed: WALK_SPEED_WU,
-        _targetWX: prevMe?._targetWX,
-        _targetWZ: prevMe?._targetWZ,
       };
       
-      // Si el servidor detuvo al jugador, marcar _stopped para que useGameLoop cancele interpolación
+      // Si el servidor detuvo al jugador, marcar _stopped para que useGameLoop cancele flags
       if (stopped) {
         me._stopped = stopped;
-        me._targetWX = undefined;
-        me._targetWZ = undefined;
         me.moving = false;
+        // NO actualizar cameraWX/WZ aquí — la cámara sigue suavemente
       }
       
       return { me };

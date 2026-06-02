@@ -20,7 +20,7 @@ export const GAME_CONSTANTS = {
     CANVAS_H: (2 * 5 + 1) * 192,
   },
   MOVEMENT: {
-    WALK_SPEED_WU: 0.375,
+    WALK_SPEED_WU: 80,
     MAX_CLICK_WU: 800,
     CITY_EXIT_NUDGE_WU: 0.01,
   },

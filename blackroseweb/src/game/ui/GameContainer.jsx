@@ -8,13 +8,14 @@ import { useMMOCamera } from "../hooks/useMMOCamera.js";
 import { useGameLoop } from "../hooks/useGameLoop.js";
 import { usePlayerInit } from "../hooks/usePlayerInit.js";
 import { useMapInteractions } from "../hooks/useMapInteractions.js";
-import { worldToRender, cityPlayArea, cityViewFrame, normalizedWorldInCity } from "../utils/geo.js";
+import { worldToRender, coordToCanvas, cityPlayArea, cityViewFrame, normalizedWorldInCity } from "../utils/geo.js";
 import { pointInRect, getDistance } from "../utils/math.js";
 import { isWorldInsideCity, cityForPlayer, cityWorldToImage, cityImageToWorld, clampWorldToCity, nudgeWorldOutsideCity } from "../utils/movement.js";
 import { directionToAngle } from "../utils/vectors.js";
 import { calculateCameraOffset } from "../utils/camera.js";
 import { getEntityName } from "../utils/entityNames.js";
 import { useGameSocket } from "../../shared/context/GameSocketContext.jsx";
+import { EntityLayer } from "./EntityLayer.jsx";
 
 import "./GameContainer.css";
 import UnderBar from "./hud/UnderBar.jsx";
@@ -37,7 +38,7 @@ const {
 
 const { WALK_SPEED_WU, MAX_CLICK_WU, CITY_EXIT_NUDGE_WU } = MOVEMENT;
 const R = UNITS_PER_REGION;
-const CAMERA_OFFSET_Y = 80;
+const CAMERA_OFFSET_Y = 0;
 
 // Differentiate Race from RefObjID
 function getRaceFromID(id) {
@@ -124,7 +125,7 @@ function getTilesAroundPlayer(regionX, regionZ) {
       const screenX = (TILE_RADIUS + dx) * BASE_TILE_SZ;
       const screenY = (TILE_RADIUS - dz) * BASE_TILE_SZ;
       WORLD_GRID.push({ tileX:x, tileZ:z, screenX, screenY, unitsWide: UNITS_PER_REGION });
-      tiles.push({ key:`${x}_${z}`, src:`/interface/minimap/${x}x${z}.webp`, screenX, screenY });
+      tiles.push({ key:`${x}_${z}`, tileX:x, tileZ:z, src:`/interface/minimap/${x}x${z}.webp`, screenX, screenY });
     }
   }
   return tiles;
@@ -199,7 +200,7 @@ export function GameLoading({ text = "Cargando..." }) {
 ══════════════════════════════════════════════════════ */
 export default function GameContainer({ user, character }) {
   const { logout } = useAuth();
-  const { playerState, entities, send } = useGameSocket();
+  const { playerState, entities, setEntities, serverDisconnected, reconnect, send } = useGameSocket();
 
   const [currentMap,     setCurrentMap]     = useState("world");
   const [activeWindow,   setActiveWindow]   = useState(null);
@@ -245,9 +246,25 @@ export default function GameContainer({ user, character }) {
     players?.me?.worldZ != null &&
     !isNaN(players?.me?.worldZ);
 
-  const isWorldReady = hasPlayerPosition;
+  // Timeout de seguridad: si en 20 segundos no llega posición, forzar mundo
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  useEffect(() => {
+    if (hasPlayerPosition) return;
+    const t = setTimeout(() => {
+      console.warn('[GameContainer] Loading timeout — forzando mundo');
+      setLoadingTimeout(true);
+    }, 20000);
+    return () => clearTimeout(t);
+  }, [hasPlayerPosition]);
+
+  const isWorldReady = hasPlayerPosition || loadingTimeout;
 
   const [targetWorld, setTargetWorld] = useState(null);
+
+  // Sincronizar debug state → clase CSS en body para la grilla
+  useEffect(() => {
+    document.body.classList.toggle('show-grid', debug);
+  }, [debug]);
 
   const world = useMMOCamera(2);
   const city  = useMMOCamera(6);
@@ -258,8 +275,16 @@ export default function GameContainer({ user, character }) {
     const cz = players.me?.regionZ;
     if (!cx || !cz) return;
     if (cx === lastRegion.current.x && cz === lastRegion.current.z) return;
+    const prevRegion = lastRegion.current;
     lastRegion.current = { x: cx, z: cz };
-    setVisibleTiles(getTilesAroundPlayer(cx, cz));
+    const newTiles = getTilesAroundPlayer(cx, cz);
+    setVisibleTiles(newTiles);
+    
+    // Si cambió la región, guardar tiles viejos para fade-out
+    if (prevRegion.x !== cx || prevRegion.z !== cz) {
+      // Los tiles viejos se desvanecen (clase CSS .gc-tile-exit)
+      // Los tiles nuevos ya tienen opacidad 1 por defecto
+    }
   }, [players.me?.regionX, players.me?.regionZ]);
 
   useEffect(() => {
@@ -336,6 +361,8 @@ export default function GameContainer({ user, character }) {
   /* ── GAME LOOP — moves in World Units (SRU), derives render from world ── */
   useGameLoop({
     setPlayers,
+    entities,
+    setEntities,
     insideCityRef,
     setInsideCity,
     setCurrentMap,
@@ -379,8 +406,12 @@ export default function GameContainer({ user, character }) {
   }
 
   const me = players.me;
+  // Usar coordenadas de píxel del click directamente para el marker
+  // Si no están disponibles, calcular desde world units como fallback
   const tgtScreen = targetWorld 
-    ? worldToRender(targetWorld.wx, targetWorld.wz, me.worldX, me.worldZ) 
+    ? (targetWorld.px != null 
+        ? { renderX: targetWorld.px, renderZ: targetWorld.py }
+        : worldToRender(targetWorld.wx, targetWorld.wz, me.worldX, me.worldZ))
     : null;
   const regionInfo = regionByXZ[`${me.regionX}_${me.regionZ}`];
 
@@ -455,6 +486,44 @@ export default function GameContainer({ user, character }) {
           </div>
         </div>
       </div>
+
+      {/* ══ DISCONNECTED OVERLAY ══ */}
+      {serverDisconnected && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '16px',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 360,
+            background: 'linear-gradient(180deg, #1a1200 0%, #0a0800 100%)',
+            border: '2px solid #8b6914', borderRadius: 4,
+            padding: '20px 16px 16px',
+            boxShadow: '0 0 0 1px #3a2a00, inset 0 0 0 1px #3a2a00, 0 8px 32px #0008',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            fontFamily: 'sans-serif',
+          }}>
+            <div style={{ color: '#ff4444', fontSize: 24, fontWeight: 700 }}>❌ Desconectado</div>
+            <div style={{ color: '#a09070', fontSize: 13, textAlign: 'center', margin: 0, lineHeight: 1.4 }}>
+              La conexión con el servidor se perdió
+            </div>
+            <button
+              onClick={reconnect}
+              style={{
+                background: 'linear-gradient(180deg, #c9a84c 0%, #8b6914 100%)',
+                border: '1px solid #c9a84c', borderRadius: 3,
+                color: '#1a1200', fontSize: 13, fontWeight: 700,
+                padding: '8px 24px', cursor: 'pointer',
+                textShadow: '0 1px 0 rgba(255,255,255,0.2)',
+                letterSpacing: '0.5px',
+              }}
+            >
+              🔄 Reconectar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══ MMO MINIMAP HUD ══ */}
       <div className="gc-minimap-ui">
@@ -538,10 +607,19 @@ export default function GameContainer({ user, character }) {
           const vp = world.viewportRef.current;
           const cv = world.canvasRef.current;
           
-          // Usar renderX/renderZ del jugador (que ahora refleja su posición real en el canvas)
-          // Si está siguiendo al jugador, usar me.renderX; si no, calcular desde cameraWX
-          const cRX = me.isFollowingPlayer ? me.renderX : (TILE_RADIUS * UNITS_PER_REGION) + (me.cameraWX - (Math.floor(me.cameraWX / UNITS_PER_REGION) * UNITS_PER_REGION));
-          const cRZ = me.isFollowingPlayer ? me.renderZ : (TILE_RADIUS * UNITS_PER_REGION) - (me.cameraWZ - (Math.floor(me.cameraWZ / UNITS_PER_REGION) * UNITS_PER_REGION));
+          // Calcular posición del canvas de forma estable desde worldX/worldZ
+          // Usamos worldToRender con el propio jugador como referencia → da el centro del canvas
+          // El tile central (TILE_RADIUS, TILE_RADIUS) = (TILE_RADIUS*R, TILE_RADIUS*R) en píxeles
+          // y corresponde a la región actual del jugador
+          // Posición del player en el canvas usando la función ESTÁNDAR centralizada
+          const rX = Math.floor(me.worldX / R) + 135;
+          const rZ = Math.floor(me.worldZ / R) + 92;
+          const localX = me.worldX - (rX - 135) * R;
+          const localZ = me.worldZ - (rZ - 92) * R;
+          const { canvasX: stableRX, canvasZ: stableRZ } = coordToCanvas(rX, rZ, localX, localZ, rX, rZ);
+          
+          const cRX = me.isFollowingPlayer ? stableRX : (TILE_RADIUS * UNITS_PER_REGION) + (me.cameraWX - (Math.floor(me.cameraWX / UNITS_PER_REGION) * UNITS_PER_REGION));
+          const cRZ = me.isFollowingPlayer ? stableRZ : (TILE_RADIUS * UNITS_PER_REGION) - (me.cameraWZ - (Math.floor(me.cameraWZ / UNITS_PER_REGION) * UNITS_PER_REGION));
           
           if (isNaN(cRX) || isNaN(cRZ)) { worldOffsetX = 0; worldOffsetY = 0; }
           else {
@@ -621,22 +699,22 @@ export default function GameContainer({ user, character }) {
           >
             {/* LAYER 1: Tiles */}
             {currentMap === "world" && visibleTiles.map(tile => (
-              <img
-                key={tile.key}
-                src={tile.src}
-                alt=""
-                style={{
-                  position: "absolute",
-                  left: tile.screenX,
-                  top: tile.screenY,
-                  width: BASE_TILE_SZ,
-                  height: BASE_TILE_SZ,
-                  imageRendering: "pixelated",
-                  pointerEvents: "none",
-                }}
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-            ))}
+              <div key={tile.key} className="gc-tile-cell" data-grid-label={`${tile.tileZ}_${tile.tileX}`}
+                style={{ position: "absolute", left: tile.screenX, top: tile.screenY, width: BASE_TILE_SZ, height: BASE_TILE_SZ }}
+              >
+                <img
+                  src={tile.src}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "block",
+                    imageRendering: "pixelated",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            ))} 
 
             {/* LAYER 1.5: City Overlays (Seamless Unified View) */}
             {cityOverlays.map(city => {
@@ -767,46 +845,20 @@ export default function GameContainer({ user, character }) {
                       transformOrigin: 'center center',
                       transform: `rotate(${p.angle ?? 0}deg)`,
                     }}>
-                      <img src="/mm_sign_character.png" alt="" style={{width:'100%', height:'100%', display:'block', pointerEvents:'none', transform:'rotate(-90deg)'}} />
+                      <img src="/mm_sign_character.png" alt="" style={{width:'100%', height:'100%', display:'block', pointerEvents:'none'}} />
                     </span>
                   </div>
                 );
               })}
             </div>
 
-            {/* LAYER 3.5: Entities (NPCs, Mobs) */}
-            {currentMap === "world" && entities && Object.values(entities).map(entity => {
-              // Saltar entities sin posición
-              if (entity.regionX == null || entity.regionZ == null) return null;
-              const eWorldX = entity.regionX * UNITS_PER_REGION + (entity.posX ?? 0);
-              const eWorldZ = entity.regionZ * UNITS_PER_REGION + (entity.posZ ?? 0);
-              const { renderX, renderZ } = worldToRender(eWorldX, eWorldZ, me.worldX, me.worldZ);
-              
-              // Saltar si renderX/renderZ no son válidos
-              if (renderX == null || isNaN(renderX) || renderZ == null || isNaN(renderZ)) return null;
-              // Solo renderizar si está dentro del canvas visible
-              if (renderX < 0 || renderX > MAP_CANVAS_W || renderZ < 0 || renderZ > MAP_CANVAS_H) return null;
-              
-              const isNPC = entity.entityType === 'NPC';
-              const isMob = entity.entityType === 'MOB';
-              const color = isNPC ? '#00ff88' : isMob ? '#ff4444' : '#88aaff';
-              const size = isNPC ? 8 : isMob ? 6 : 6;
-              
-              return (
-                <div key={entity.uniqueId} style={{
-                  position: 'absolute',
-                  left: renderX - size/2,
-                  top: renderZ - size/2,
-                  width: size,
-                  height: size,
-                  borderRadius: '50%',
-                  background: color,
-                  border: '1px solid #000',
-                  zIndex: 900,
-                  pointerEvents: 'none',
-                }} />
-              );
-            })}
+            {/* LAYER 3.5: Entity Layer */}
+            <EntityLayer 
+              currentMap={currentMap}
+              entities={entities}
+              me={me}
+              world={world}
+            />
 
             {/* LAYER 4: Debug Grid */}
             {debug && debugRegions.map(r => (

@@ -116,8 +116,6 @@
   top: 0;
   left: 0;
   transform-origin: top left;
-  display: flex;
-  flex-direction: column;
   width: max-content;
   will-change: transform;
 }
@@ -138,6 +136,32 @@
 .gc-tile-wrap {
   position: relative;
   flex-shrink: 0;
+}
+
+/* Celda de tile individual con soporte para grilla debug */
+.gc-tile-cell {
+  position: absolute;
+  animation: gcTileFadeIn 0.35s ease-out;
+}
+@keyframes gcTileFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+body.show-grid .gc-tile-cell {
+  outline: 1px solid rgba(255, 0, 0, 0.35);
+  z-index: 10;
+}
+body.show-grid .gc-tile-cell::after {
+  content: attr(data-grid-label);
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  font-size: 9px;
+  color: rgba(255, 200, 0, 0.8);
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 20;
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 3px #000;
 }
 
 .gc-tile {
@@ -293,6 +317,11 @@
     transform: translate(-50%, -50%) scale(0.7);
     opacity: 0.9;
   }
+}
+
+/* Transición suave para el overlay del player (dot se mueve suavemente con CSS) */
+.gc-overlay-layer > div {
+  transition: left 0.15s ease-out, top 0.15s ease-out;
 }
 
 /* Player HUD */

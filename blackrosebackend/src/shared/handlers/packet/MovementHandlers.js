@@ -1,6 +1,7 @@
 // Handlers for Movement & Environment opcodes: 0xB021, 0x3020
 // Extracted from PacketRouter.js
 import Logger from '../../utils/Logger.js';
+import { calcWorldCoords } from '../../utils/coordUtils.js';
 
 export function createMovementHandlers(router) {
     return {
@@ -70,18 +71,20 @@ export function createMovementHandlers(router) {
                 let pos = 0;
                 const entityUniqueId = payload.readUInt32LE(pos); pos += 4;
                 const hasDestination = payload.readUInt8(pos); pos += 1;
-                const isMyMove = (entityUniqueId === router._playerUniqueId);
+                const isMyMove = (entityUniqueId === router._playerUniqueId) || (entityUniqueId === router._expectedUniqueId);
 
                 let dstRegion = 0, dstX = 0, dstZ = 0, dstY = 0;
                 let hasSource = false, srcRegion = 0, srcX = 0, srcZ = 0, srcY = 0;
                 let angle = 0;
 
+                Logger.info(`[0xB021] entityUniqueId=${entityUniqueId} _playerUniqueId=${router._playerUniqueId} _expectedUniqueId=${router._expectedUniqueId} isMyMove=${isMyMove} payloadLen=${payload.length}`, 'Movement');
+
                 if (hasDestination === 1) {
                     dstRegion = payload.readUInt16LE(pos); pos += 2;
-                    // Orden en 0xB021 según Silkroad Fusion CharacterMoving: X, Z(altitud), Y(norte-sur)
-                    dstX = payload.readInt16LE(pos); pos += 2;
-                    dstY = payload.readInt16LE(pos); pos += 2;
-                    dstZ = payload.readInt16LE(pos); pos += 2;
+                    // Orden en 0xB021 según JellyBitz: X, Z(norte-sur), Y(altitud)
+                    dstX = payload.readInt16LE(pos); pos += 2;   // X offset
+                    dstZ = payload.readInt16LE(pos); pos += 2;   // Z = norte-sur
+                    dstY = payload.readInt16LE(pos); pos += 2;   // Y = altitud (height)
                 } else {
                     // Sin destino, puede tener ángulo
                     const moveType = payload.readUInt8(pos); pos += 1; // 0=spinning, 1=sky/key-walking
@@ -123,8 +126,8 @@ export function createMovementHandlers(router) {
                         type: eventName, uniqueId: entityUniqueId,
                         dstRegion: hasDestination ? dstRegion : undefined,
                         dstX: hasDestination ? Math.round(dstX / 10) : undefined,
-                        dstZ: hasDestination ? Math.round(dstZ / 10) : undefined,
-                        dstY: hasDestination ? Math.round(dstY / 10) : undefined,
+                        dstZ: hasDestination ? Math.round(dstZ / 10) : undefined,   // norte-sur
+                        dstY: hasDestination ? Math.round(dstY / 10) : undefined,   // altura
                         hasSource,
                         srcRegion: hasSource ? srcRegion : undefined,
                         srcX: hasSource ? Math.round(srcX) : undefined,
@@ -134,11 +137,19 @@ export function createMovementHandlers(router) {
                     });
                 }
 
-                // Actualizar última altitud conocida (usar dstY que ahora es altitud real)
-                if (isMyMove && dstY > 0) {
-                    router._lastPlayerPosY = Math.round(dstY / 10);
-                } else if (isMyMove && srcY > 0) {
-                    router._lastPlayerPosY = Math.round(srcY);
+                // Actualizar última altitud conocida
+                // dstY es raw Int16 (altitud, necesita /10). srcY ya viene como float (altitud real).
+                if (isMyMove) {
+                    if (hasDestination && dstY !== 0) {
+                        router._lastPlayerPosY = Math.round(dstY / 10);
+                    } else if (hasSource && srcY !== 0) {
+                        router._lastPlayerPosY = Math.round(srcY);
+                    } else if (hasDestination && dstY === 0) {
+                        // dstY=0 es terreno plano, mantener altitud mínima
+                        if (!router._lastPlayerPosY || router._lastPlayerPosY <= 0) {
+                            router._lastPlayerPosY = 1;
+                        }
+                    }
                 }
 
             } catch (e) {

@@ -20,7 +20,7 @@ const {
 } = MAP;
 const { MAX_CLICK_WU, CITY_EXIT_NUDGE_WU } = MOVEMENT;
 const R = UNITS_PER_REGION;
-const CAMERA_OFFSET_Y = 80;
+const CAMERA_OFFSET_Y = 0;
 
 const ICON_SIZE = {
   city: ICONS.CITY, fort: ICONS.FORT,
@@ -114,6 +114,11 @@ export default function GameCanvas({
   const resolvedMarkers = useMemo(resolveMarkers, []);
   const me = players?.me;
 
+  // Sincronizar clase show-grid al body cuando debug está activo
+  useEffect(() => {
+    document.body.classList.toggle('show-grid', debug);
+  }, [debug]);
+
   // Tiles visibles
   const visibleTiles = useMemo(() => {
     const wx = me?.worldX;
@@ -165,6 +170,7 @@ export default function GameCanvas({
             {/* Tiles */}
             {visibleTiles.map(tile => (
               <div key={`${tile.x}_${tile.z}`} className="gc-tile-wrap" data-src={tile.src}
+                data-grid-label={`${tile.z}_${tile.x}`}
                 ref={el => { if (el && !el.dataset.observed) { el.dataset.observed = '1'; getTileObserver().observe(el); } }}
                 style={{ position: 'absolute', left: tile.screenX, top: tile.screenY, width: BASE_TILE_SZ, height: BASE_TILE_SZ }}
               />

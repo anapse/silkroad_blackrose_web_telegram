@@ -4,6 +4,8 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { loadEntityData } from "../../game/utils/entityNames.js";
+import { GAME_CONSTANTS } from "../constants/gameConstants.js";
+const UNITS_PER_REGION = GAME_CONSTANTS.MAP.UNITS_PER_REGION;
 
 // Valor por defecto para evitar crashes cuando el provider no está montado
 const defaultContext = {
@@ -34,6 +36,7 @@ function getGatewayUrl() {
 export function GameSocketProvider({ children }) {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
+  const [serverDisconnected, setServerDisconnected] = useState(false);
 
   // Cargar datos de mobs/npcs AL INICIO para que estén listos cuando se necesiten
   useEffect(() => {
@@ -67,6 +70,7 @@ export function GameSocketProvider({ children }) {
   const [entities, setEntities] = useState({});
 
   const packetHandlersRef = useRef({});
+  const nameCacheRef = useRef({});
 
   const registerPacketHandler = useCallback((opcode, handler) => {
     packetHandlersRef.current[opcode] = handler;
@@ -106,11 +110,22 @@ export function GameSocketProvider({ children }) {
         if (msg.type === "EVENT") {
           setEvents((prev) => [...prev.slice(-99), { ...msg, timestamp: Date.now() }]);
 
+          // Detectar desconexión del servidor de juego
+          if (msg.message && typeof msg.message === 'string' && msg.message.includes('Desconectado')) {
+            setServerDisconnected(true);
+            setConnected(false);
+          }
+
           if (msg.message?.includes("👤 Personajes") && msg.detail?.characters) {
             setCharacters(msg.detail.characters);
           }
 
           if (msg.detail?.type === "CHAT_MESSAGE") {
+            // Capturar nombre del chat para el nameCache
+            if (msg.detail.uniqueID && msg.detail.charname) {
+              nameCacheRef.current[msg.detail.uniqueID] = msg.detail.charname;
+              console.log(`[nameCache] 📝 ${msg.detail.uniqueID} → ${msg.detail.charname}`);
+            }
             setChatMessages((prev) => [
               ...prev.slice(-199),
               { id: Date.now() + Math.random(), chatType: msg.detail.chatType, charname: msg.detail.charname || "???", message: msg.detail.message || "", uniqueID: msg.detail.uniqueID, timestamp: Date.now(), direction: "RX" },
@@ -151,22 +166,24 @@ export function GameSocketProvider({ children }) {
           if (msg.detail?.type === "PLAYER_STOPPED") {
             const d = msg.detail;
             // El servidor detuvo al jugador (colisión o llegada a destino)
-            // Actualizar posición y detener interpolación
-            if (d.region && d.region > 0) {
-              setPlayerState((prev) => ({
+            setPlayerState((prev) => {
+              if (!d.region || d.region <= 0) {
+                return { ...prev, _stopped: Date.now() };
+              }
+              return {
                 ...prev,
                 region: d.region,
-                posX: d.posX ?? prev.posX,
-                posY: d.posY ?? prev.posY,
-                posZ: d.posZ ?? prev.posZ,
-                _stopped: Date.now(),  // marca para que useGameLoop detenga interpolación
-              }));
-            }
+                posX: (d.posX != null) ? d.posX : prev.posX,
+                posY: (d.posY != null) ? d.posY : prev.posY,
+                posZ: (d.posZ != null) ? d.posZ : prev.posZ,
+                _stopped: Date.now(),
+              };
+            });
           }
 
           if (msg.detail?.type === "PLAYER_POSITION_INIT") {
             const d = msg.detail;
-            console.log('[PLAYER_POSITION_INIT]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
+            // console.log('[PLAYER_POSITION_INIT]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
             // Solo actualizar si la región es válida (no 0)
             // Si region=0, el scanner no encontró posición y el frontend
             // debe mantener su fallback por raza (usePlayerInit.js)
@@ -210,30 +227,104 @@ export function GameSocketProvider({ children }) {
             const regionId = Number(d.region) || 0;
             const regionX = regionId & 0xFF;
             const regionZ = (regionId >> 8) & 0xFF;
-            setEntities((prev) => ({
-              ...prev,
-              [d.uniqueId]: {
-                ...d,
-                regionX,
-                regionZ,
+            // Calcular world units USANDO SISTEMA CENTRADO
+            const worldX = ((regionX - 135) * UNITS_PER_REGION) + (d.posX || 0);
+            const worldZ = ((regionZ - 92) * UNITS_PER_REGION) + (d.posZ || 0);
+            const entityType = d.entityType || '?';
+            const entityName = d.name || `${entityType}#${d.uniqueId}`;
+            // Log solo para CHARs (otros jugadores)
+            if (entityType === 'CHAR') {
+              console.log(`👤 [PLAYER] ${entityName} uid=${d.uniqueId} refObjId=${d.refObjId} world=(${worldX},${worldZ})`);
+            }
+            setEntities((prev) => {
+              const updated = {
+                ...prev,
+                [d.uniqueId]: {
+                  ...d,
+                  regionX,
+                  regionZ,
+                  worldX,
+                  worldZ,
+                }
+              };
+              return updated;
+            });
+          }
+
+          if (msg.detail?.type === "ENTITY_UPDATE") {
+            const d = msg.detail;
+            if (d.uniqueId) {
+              const updateData = {};
+              if (d.stallFlag !== undefined) updateData.stallFlag = d.stallFlag;
+              if (d.stallName !== undefined) updateData.stallName = d.stallName;
+              if (Object.keys(updateData).length > 0) {
+                console.log(`[ENTITY_UPDATE] 🔄 uid=${d.uniqueId}`, updateData);
+                setEntities((prev) => {
+                  if (!prev[d.uniqueId]) return prev;
+                  return { ...prev, [d.uniqueId]: { ...prev[d.uniqueId], ...updateData } };
+                });
               }
-            }));
+            }
           }
 
           if (msg.detail?.type === "ENTITY_MOVE") {
             const d = msg.detail;
+            // Ignorar si no hay destino válido (evita NaN)
+            if (!d.dstRegion || d.dstRegion <= 0 || d.dstX == null || d.dstZ == null) {
+              console.warn(`[ENTITY_MOVE] ⚠️ uid=${d.uniqueId} destino inválido, ignorando`, d);
+              return;
+            }
+            console.log(`[ENTITY_MOVE] 🚶 uid=${d.uniqueId} dstRegion=${d.dstRegion} dstX=${d.dstX} dstZ=${d.dstZ}`);
             setEntities((prev) => {
-              if (!prev[d.uniqueId]) return prev;
+              if (!prev[d.uniqueId]) {
+                console.log(`[ENTITY_MOVE] ⚠️ uid=${d.uniqueId} NO ENCONTRADO - CREANDO como CHAR`);
+                // Buscar nombre en caché
+                const cachedName = nameCacheRef.current[d.uniqueId];
+                const newName = cachedName ? cachedName : `Player#${d.uniqueId}`;
+                // Crear la entidad sobre la marcha con los datos del movimiento
+                const regionId = Number(d.dstRegion) || 0;
+                const dstRegionX = regionId & 0xFF;
+                const dstRegionZ = (regionId >> 8) & 0xFF;
+                const dstWorldX = ((dstRegionX - 135) * UNITS_PER_REGION) + (d.dstX || 0);
+                const dstWorldZ = ((dstRegionZ - 92) * UNITS_PER_REGION) + (d.dstZ || 0);
+                return {
+                  ...prev,
+                  [d.uniqueId]: {
+                    uniqueId: d.uniqueId,
+                    entityType: 'CHAR',
+                    region: d.dstRegion,
+                    regionX: dstRegionX,
+                    regionZ: dstRegionZ,
+                    posX: d.dstX,
+                    posZ: d.dstZ,
+                    posY: d.dstY || 0,
+                    worldX: dstWorldX,
+                    worldZ: dstWorldZ,
+                    name: newName,
+                    _targetWX: dstWorldX,
+                    _targetWZ: dstWorldZ,
+                  }
+                };
+              }
               const regionId = Number(d.dstRegion) || 0;
+              const dstRegionX = regionId & 0xFF;
+              const dstRegionZ = (regionId >> 8) & 0xFF;
+              // Calcular world units del destino USANDO SISTEMA CENTRADO
+              const dstWorldX = ((dstRegionX - 135) * UNITS_PER_REGION) + (d.dstX || 0);
+              const dstWorldZ = ((dstRegionZ - 92) * UNITS_PER_REGION) + (d.dstZ || 0);
               return {
                 ...prev,
                 [d.uniqueId]: {
                   ...prev[d.uniqueId],
                   region: d.dstRegion,
-                  regionX: regionId & 0xFF,
-                  regionZ: (regionId >> 8) & 0xFF,
+                  regionX: dstRegionX,
+                  regionZ: dstRegionZ,
                   posX: d.dstX,
                   posZ: d.dstZ,
+                  worldX: dstWorldX,
+                  worldZ: dstWorldZ,
+                  _targetWX: dstWorldX,
+                  _targetWZ: dstWorldZ,
                 }
               };
             });
@@ -245,9 +336,17 @@ export function GameSocketProvider({ children }) {
           }
 
           if (msg.detail?.type === "PLAYER_MOVE_CONFIRMED") {
-            // No actualizar posición aquí — el useGameLoop ya está interpolando
-            // hacia _targetWX/_targetWZ. PLAYER_MOVE_CONFIRMED solo confirma
-            // que el servidor aceptó el destino, no cambia la posición actual.
+            // El servidor confirmó el movimiento (0xB021).
+            // Actualizar posición directamente — la suavidad visual la dan
+            // las transiciones CSS del canvas offset y el dot del player.
+            const d = msg.detail;
+            if (d.dstRegion != null && d.dstRegion > 0 && d.dstX != null && d.dstZ != null) {
+              setPlayerState((prev) => {
+                const updates = { region: d.dstRegion, posX: d.dstX, posZ: d.dstZ };
+                if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
+                return { ...prev, ...updates };
+              });
+            }
           }
 
           if (msg.detail?.type === "PLAYER_UPDATE") {
@@ -342,7 +441,17 @@ export function GameSocketProvider({ children }) {
     };
 
     ws.onerror = (err) => console.error('[WS] Error:', err.message || 'Unknown error');
-    ws.onclose = (ev) => { console.log('[WS] Closed - Code:', ev.code, 'Reason:', ev.reason); setConnected(false); socketRef.current = null; };
+    ws.onclose = (ev) => {
+      console.log('[WS] Closed - Code:', ev.code, 'Reason:', ev.reason);
+      setConnected(false);
+      setServerDisconnected(true);
+      socketRef.current = null;
+    };
+  }, []);
+
+  const reconnect = useCallback(() => {
+    // Recargar la página para reiniciar todo el estado limpio
+    window.location.reload();
   }, []);
 
   const disconnect = useCallback(() => {
@@ -379,7 +488,7 @@ export function GameSocketProvider({ children }) {
   }, []);
 
   return (
-    <GameSocketContext.Provider value={{ socketRef, connected, playerState, chatMessages, events, characters, entities, connect, disconnect, send, registerPacketHandler, unregisterPacketHandler, setPlayerState, setChatMessages, setCharacters }}>
+    <GameSocketContext.Provider value={{ socketRef, connected, serverDisconnected, playerState, chatMessages, events, characters, entities, setEntities, connect, reconnect, disconnect, send, registerPacketHandler, unregisterPacketHandler, setPlayerState, setChatMessages, setCharacters }}>
       {children}
     </GameSocketContext.Provider>
   );

@@ -166,21 +166,37 @@ class WebSocketSession {
             Logger.info(`[MOVE] Frontend move request: region=${region} posX=${posX} posZ=${posZ} posY=${frontendPosY}`, 'WebSocketSession');
 
             try {
-              // Usar la altitud del frontend, o la última conocida del servidor
-              let altY = frontendPosY;
-              if (!altY || altY <= 0) {
-                const router = session.tcpSession.packetRouter;
-                altY = (router && router._lastPlayerPosY > 0) ? router._lastPlayerPosY : 0;
+              const router = session.tcpSession.packetRouter;
+              
+              // Detectar cambio de región
+              const currentRegion = router._currentRegion;
+              if (currentRegion !== undefined && currentRegion !== region) {
+                Logger.info(`[MOVE] Region changed: ${currentRegion} -> ${region}. Sending 0x34B6 for new spawns...`, 'WebSocketSession');
+                // Enviar 0x34B6 para solicitar spawns de la nueva región
+                try {
+                  const PacketWriter = require('../../packet/PacketWriter');
+                  const spawnReady = session.tcpSession.security.formatPacket(0x34B6, Buffer.alloc(0), true);
+                  session.tcpSession.send(spawnReady);
+                  Logger.info(`[MOVE] 0x34B6 sent for region ${region}`, 'WebSocketSession');
+                } catch (e) {
+                  Logger.warn(`[MOVE] Failed to send 0x34B6: ${e.message}`, 'WebSocketSession');
+                }
+              }
+              router._currentRegion = region;
+
+              // Usar la altitud del servidor (última conocida) o la del frontend
+              let altY = 0;
+              if (router && router._lastPlayerPosY > 0) {
+                altY = router._lastPlayerPosY; // ya está en unidades /10
+              } else if (frontendPosY != null && frontendPosY > 0) {
+                altY = frontendPosY;
+              }
+              // Si no hay altitud conocida, usar 182 (altitud típica de Jangan)
+              if (altY <= 0) {
+                altY = 182.0;
               }
 
               // Construir paquete 0x7021 (CLIENT_MOVEMENT)
-              // Estructura de DaxterSoul/Nocturne33:
-              // [1] byte: type (0=sky click, 1=normal click)
-              // [1] byte: xSector (regionX)
-              // [1] byte: ySector (regionZ)
-              // [2] short: xOffset * 10 (int16) - offset local en X
-              // [2] short: zOffset * 10 (int16) - offset local en Z (eje norte-sur)
-              // [2] short: yOffset * 10 (int16) - altura
               const PacketWriter = require('../../packet/PacketWriter');
               const p = new PacketWriter();
 
@@ -192,35 +208,33 @@ class WebSocketSession {
               const z10 = Math.round((posZ || 0) * 10);
               const y10 = Math.round(altY * 10);
 
-              Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) x10=${x10} y10=${y10} z10=${z10}`, 'WebSocketSession');
+              Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) xOffset=${x10} zOffset(NS)=${z10} yOffset(H)=${y10}`, 'WebSocketSession');
 
               p.writeByte(0x01); // movement type (1 = normal click)
-              // Según silkroad-bot y Movement.cs (docs/refs): xSector e ySector como bytes separados
-              // NO como ushort combinado. El servidor espera [xSec][ySec], no [regionId].
-              p.writeByte(regionX); // xSector
-              p.writeByte(regionZ); // ySector
+              // Escribir RegionID como ushort (2 bytes) igual que RSBot
+              p.writeWord(region & 0xFFFF); // regionID como ushort
 
               if (region >= 32768) {
                 // Dungeon - int32
                 p.writeDWord(x10);
-                p.writeDWord(y10);
                 p.writeDWord(z10);
+                p.writeDWord(y10);
               } else {
                 // Normal world - int16 (short)
-                // Orden según Silkroad Fusion WalkTo: X, Z(altitud), Y(norte-sur)
-                const bx = Buffer.alloc(2);
-                bx.writeInt16LE(x10, 0);
-                p.writeWord(bx.readUInt16LE(0));
-                const by = Buffer.alloc(2);
-                by.writeInt16LE(y10, 0);
-                p.writeWord(by.readUInt16LE(0));
-                const bz = Buffer.alloc(2);
-                bz.writeInt16LE(z10, 0);
-                p.writeWord(bz.readUInt16LE(0));
+                // Orden según RSBot (0x7021): X, Z(norte-sur), Y(altitud)
+                // RSBot Player.MoveTo: WriteShort(XOffset), WriteShort(ZOffset), WriteShort(YOffset)
+                const writeShortLE = (val) => {
+                    const b = Buffer.alloc(2);
+                    b.writeInt16LE(Math.round(val), 0);
+                    p.writeWord(b.readUInt16LE(0));
+                };
+                writeShortLE(x10);   // xOffset * 10 (este-oeste = posX)
+                writeShortLE(z10);   // zOffset * 10 (norte-sur = posZ)
+                writeShortLE(y10);   // yOffset * 10 (altitud = altY)
               }
 
               const rawPayload = p.getBytes();
-              console.log('[7021 SENT RAW]', JSON.stringify({ hex: Buffer.from(rawPayload).toString('hex'), length: rawPayload.length }));
+              Logger.info('[MOVE] 0x7021 HEX=' + Buffer.from(rawPayload).toString('hex').toUpperCase() + ' size=' + rawPayload.length, 'WebSocketSession');
               const encPacket = session.tcpSession.security.formatPacket(0x7021, rawPayload, true);
               session.tcpSession.send(encPacket);
               Logger.info('[MOVE] 0x7021 sent to game server', 'WebSocketSession');

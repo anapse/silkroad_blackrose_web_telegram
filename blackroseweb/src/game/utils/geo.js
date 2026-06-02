@@ -18,13 +18,55 @@ const CANVAS_CENTER = TILE_RADIUS * BASE_TILE_SZ + BASE_TILE_SZ / 2;
 
 /**
  * World Units → píxeles de canvas.
- * El centro del canvas (CANVAS_CENTER) corresponde a la posición del jugador (playerWX, playerWZ).
- * Cualquier punto (wx, wz) se posiciona relativo al centro.
+ * Sistema centrado en el jugador (playerWX, playerWZ).
+ * El canvas se desplaza con CSS translate3d, por lo que el punto (0,0) del canvas
+ * es la esquina superior izquierda. La posición del jugador en píxeles se calcula
+ * desde el tile central (TILE_RADIUS, TILE_RADIUS).
+ * Cualquier otra entidad se posiciona RELATIVA al jugador en el viewport.
+ *
+ * Para otros players/entities, se usa worldToRender(wx, wz, playerWX, playerWZ)
+ * que da la posición en píxeles RELATIVA al canvas (0,0).
+ *
+ * El offset del canvas (CSS translate3d) se encarga de centrar la vista.
  */
-export const worldToRender = (wx, wz, playerWX = 0, playerWZ = 0) => ({
-  renderX: CANVAS_CENTER + (wx - playerWX) / WORLD_SCALE,
-  renderZ: CANVAS_CENTER - (wz - playerWZ) / WORLD_SCALE,
-});
+/**
+ * Sistema de coordenadas de canvas BASADO EN TILES (único y estandarizado).
+ * Convierte (regionX, regionZ, posX, posZ) de una entidad a píxeles absolutos
+ * del canvas, usando la región del jugador como referencia (igual que los tiles).
+ *
+ * @param {number} regionX - Región X de la entidad
+ * @param {number} regionZ - Región Z de la entidad (norte-sur)
+ * @param {number} posX - Offset X dentro de la región (0-191, este positivo)
+ * @param {number} posZ - Offset Z dentro de la región (0-191, norte positivo)
+ * @param {number} playerRegionX - Región X del jugador
+ * @param {number} playerRegionZ - Región Z del jugador
+ * @returns {{ canvasX, canvasZ }} Coordenadas absolutas en píxeles del canvas
+ */
+export function coordToCanvas(regionX, regionZ, posX, posZ, playerRegionX, playerRegionZ) {
+  const dx = regionX - playerRegionX;
+  const dz = regionZ - playerRegionZ;
+  return {
+    canvasX: (TILE_RADIUS + dx) * BASE_TILE_SZ + posX,
+    canvasZ: (TILE_RADIUS - dz) * BASE_TILE_SZ + posZ,
+  };
+}
+
+/**
+ * Helper para el player: calcula su posición en el canvas.
+ * Usa la misma fórmula coordToCanvas pero con región del player.
+ */
+export function playerToCanvas(playerRegionX, playerRegionZ, playerPosX, playerPosZ) {
+  return coordToCanvas(playerRegionX, playerRegionZ, playerPosX, playerPosZ, playerRegionX, playerRegionZ);
+}
+
+export const worldToRender = (wx, wz, playerWX = 0, playerWZ = 0) => {
+  const dwx = wx - playerWX;
+  const dwz = wz - playerWZ;
+  return {
+    renderX: (dwx / WORLD_SCALE) + (TILE_RADIUS * BASE_TILE_SZ),
+    renderZ: -(dwz / WORLD_SCALE) + (TILE_RADIUS * BASE_TILE_SZ),
+  };
+};
 
 export const renderToWorld = (rx, rz, playerWX = 0, playerWZ = 0) => ({
   worldX: playerWX + (rx - CANVAS_CENTER) * WORLD_SCALE,

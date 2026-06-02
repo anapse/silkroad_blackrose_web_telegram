@@ -2,6 +2,7 @@
 // Extracted from PacketRouter.js
 import Logger from '../../utils/Logger.js';
 import { parseItem } from '../../InventoryParser.js';
+import { calcWorldCoords } from '../../utils/coordUtils.js';
 
 export function createCharDataHandlers(router) {
     return {
@@ -199,8 +200,9 @@ export function createCharDataHandlers(router) {
                             Math.abs(xo) < 2000 && Math.abs(zo) < 2000 && Math.abs(yo) < 2000 &&
                             !(Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001)) {
                             playerUniqueId = uid;
-                            initPos = { region, posX: Math.round(xo / 10), posZ: Math.round(zo / 10), posY: Math.round(yo / 10) };
-                            Logger.info('[CHAR_DATA] Position found (sequential): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (zo / 10).toFixed(1) + ' y=' + (yo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
+                            const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'chardata');
+                            initPos = { region: coords.region, posX: coords.posX, posZ: coords.posZ, posY: coords.posY };
+                            Logger.info('[CHAR_DATA] Position found (sequential): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (yo / 10).toFixed(1) + ' y=' + (zo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         } else {
                             pos -= 20; // retroceder si no es válida
                             Logger.info('[CHAR_DATA] Position at sequential pos invalid, will scan backward', 'CharData');
@@ -229,8 +231,9 @@ export function createCharDataHandlers(router) {
                         if (Math.abs(xo) > 2000 || Math.abs(zo) > 2000 || Math.abs(yo) > 2000) continue;
                         if (Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001) continue;
                         playerUniqueId = uid;
-                        initPos = { region, posX: Math.round(xo / 10), posZ: Math.round(zo / 10), posY: Math.round(yo / 10) };
-                        Logger.info('[CHAR_DATA] Position found (backward scan): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (zo / 10).toFixed(1) + ' y=' + (yo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
+                        const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'chardata');
+                        initPos = { region: coords.region, posX: coords.posX, posZ: coords.posZ, posY: coords.posY };
+                        Logger.info('[CHAR_DATA] Position found (backward scan): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (yo / 10).toFixed(1) + ' y=' + (zo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         break;
                     }
                 }
@@ -254,6 +257,8 @@ export function createCharDataHandlers(router) {
                     router._pendingPlayerInfo.posX = initPos.posX;
                     router._pendingPlayerInfo.posY = initPos.posY;
                     router._pendingPlayerInfo.posZ = initPos.posZ;
+                    // Inicializar región actual para 0x7031
+                    router._currentRegion = initPos.region;
                 }
 
                 // ── Enviar eventos al frontend ──
@@ -302,13 +307,14 @@ export function createCharDataHandlers(router) {
                     });
                 }
 
+                // Enviar 0x3012 CONFIRM_SPAWN para que el servidor sepa que recibimos los datos
+                // y proceda a enviar los spawns del mundo
                 try {
-                    console.log('[0x3012] Intentando enviar...');
-                    const cs = router.tcpSession.security.formatPacket(0x3012, Buffer.alloc(0), true);
-                    router.tcpSession.send(cs);
-                    console.log('[0x3012] Enviado correctamente');
+                    const confirmPacket = router.tcpSession.security.formatPacket(0x3012, Buffer.alloc(0), true);
+                    router.tcpSession.send(confirmPacket);
+                    Logger.info('[CHAR_DATA] 0x3012 sent successfully', 'CharData');
                 } catch (e) {
-                    Logger.error('0x3012: ' + e.message, 'CharData');
+                    Logger.warn('[CHAR_DATA] Failed to send 0x3012: ' + e.message, 'CharData');
                 }
 
                 // Forzar spawn readiness después de 3s si el server no envía 0x34B5

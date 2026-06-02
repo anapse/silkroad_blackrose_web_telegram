@@ -7,6 +7,23 @@ import { parseInventory, parseInventoryMovement, parseInventoryUpdate, parseDura
 import { getTypeID2 } from './ItemTypeDB.js';
 import { createSpawnHandlers } from './handlers/packet/SpawnHandlers.js';
 import { createCharDataHandlers } from './handlers/packet/CharDataHandlers.js';
+import { createMovementHandlers } from './handlers/packet/MovementHandlers.js';
+import sessionManager from '../game/sessions/SessionManager.js';
+
+// Helper: enviar evento a TODOS los clientes conectados excepto el remitente
+export function broadcastEvent(senderSessionId, eventName, detail = {}) {
+    const sessions = sessionManager.getAllSessions();
+    for (const sess of sessions) {
+        if (sess.id === senderSessionId) continue; // saltar al que ya recibió el paquete TCP
+        if (sess.wsSession && !sess.wsSession.isClosed) {
+            try {
+                sess.wsSession.sendEvent(eventName, detail);
+            } catch (err) {
+                Logger.error(`[Broadcast] Error sending to session ${sess.id}: ${err.message}`, 'PacketRouter');
+            }
+        }
+    }
+}
 
 export default class PacketRouter {
     constructor(tcpSession, session) {
@@ -48,6 +65,9 @@ export default class PacketRouter {
         // CharData handlers from CharDataHandlers.js
         this.charDataHandlers = createCharDataHandlers(this);
 
+        // Movement handlers from MovementHandlers.js
+        this.movementHandlers = createMovementHandlers(this);
+
         // Inventario actual del jugador (mapa slot → item)
         this.inventory = [];
         this.inventoryAvatar = [];
@@ -69,12 +89,14 @@ export default class PacketRouter {
             '0x3013': (rawPacket, packetObj) => this.charDataHandlers.handleCharData(rawPacket, packetObj),
             '0x34a6': (rawPacket, packetObj) => this.charDataHandlers.handleCharDataEnd(rawPacket, packetObj),
             '0x34b5': this.handleSpawnRequest.bind(this),
-            '0x3015': this.handleSingleSpawn.bind(this),
-            '0x3016': this.handleSingleDespawn.bind(this),
+            '0x3015': (rawPacket, packetObj) => this.spawnHandlers.handleSingleSpawn(rawPacket, packetObj),
+            '0x3016': (rawPacket, packetObj) => this.spawnHandlers.handleSingleDespawn(rawPacket, packetObj),
             '0x3017': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnBegin(rawPacket, packetObj),
             '0x3018': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnEnd(rawPacket, packetObj),
             '0x3019': (rawPacket, packetObj) => this.spawnHandlers.handleGroupSpawnData(rawPacket, packetObj),
-            '0x3020': this.handlePositionUpdate.bind(this),
+            '0x3020': (rawPacket, packetObj) => this.movementHandlers.handleCelestialPosition(rawPacket, packetObj),
+            '0xb021': (rawPacket, packetObj) => this.movementHandlers.handleServerMove(rawPacket, packetObj),
+            '0xb023': (rawPacket, packetObj) => this.spawnHandlers.handleMoveBegin(rawPacket, packetObj),
             '0x3026': this.handleChat.bind(this),
             '0x059c': this.handleUnknown059c.bind(this),
             '0xf54e': this.handleUnknownF54e.bind(this),
@@ -86,12 +108,116 @@ export default class PacketRouter {
             '0x3047': this.handleStorageBegin.bind(this),
             '0x3049': this.handleStorageData.bind(this),
             '0x304a': this.handleStorageEnd.bind(this),
+            // VSROMAX custom opcodes (free version)
+            '0x7596': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x7090': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x7093': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x7310': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x7311': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x7312': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x74f8': (rawPacket, packetObj) => Logger.info(`[VSROMAX] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            // Unhandled opcodes seen in logs — log contents for analysis
+            '0x34e1': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x33a6': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x3320': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x385f': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x3077': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x3153': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x3305': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
+            '0x303d': (rawPacket, packetObj) => this.charDataHandlers.handleCharacterStatsUpdate(rawPacket, packetObj),
+            // Stall / State update opcodes
+            '0x30bf': (rawPacket, packetObj) => {
+                const payload = rawPacket.slice(6);
+                if (payload.length >= 5) {
+                    const uniqueId = payload.readUInt32LE(0);
+                    const state = payload.readUInt8(4); // 0=closed, 4=open
+                    Logger.info(`[STALL] 0x30BF uid=${uniqueId} state=${state}`, 'PacketRouter');
+                    if (this.session?.wsSession) {
+                        this.session.wsSession.sendEvent('', {
+                            type: 'ENTITY_UPDATE',
+                            uniqueId,
+                            stallFlag: state,
+                        });
+                    }
+                }
+            },
+            '0x30b8': (rawPacket, packetObj) => {
+                const payload = rawPacket.slice(6);
+                let stallName = null;
+                if (payload.length >= 6) {
+                    const uniqueId = payload.readUInt32LE(0);
+                    // Leer stall name (Ascii con prefijo de longitud)
+                    if (payload.length >= 8) {
+                        const nameLen = payload.readUInt16LE(4);
+                        if (nameLen > 0 && 6 + nameLen <= payload.length) {
+                            stallName = payload.slice(6, 6 + nameLen).toString('ascii');
+                        }
+                    }
+                    Logger.info(`[STALL] 0x30B8 CREATE uid=${uniqueId} name=${stallName || '?'}`, 'PacketRouter');
+                    if (this.session?.wsSession) {
+                        this.session.wsSession.sendEvent('', {
+                            type: 'ENTITY_UPDATE',
+                            uniqueId,
+                            stallFlag: 4,
+                            stallName,
+                        });
+                    }
+                }
+            },
+            '0x30b9': (rawPacket, packetObj) => {
+                const payload = rawPacket.slice(6);
+                if (payload.length >= 4) {
+                    const uniqueId = payload.readUInt32LE(0);
+                    Logger.info(`[STALL] 0x30B9 DESTROY uid=${uniqueId}`, 'PacketRouter');
+                    if (this.session?.wsSession) {
+                        this.session.wsSession.sendEvent('', {
+                            type: 'ENTITY_UPDATE',
+                            uniqueId,
+                            stallFlag: 0,
+                            stallName: null,
+                        });
+                    }
+                }
+            },
+            '0x30bb': (rawPacket, packetObj) => {
+                const payload = rawPacket.slice(6);
+                if (payload.length >= 8) {
+                    const uniqueId = payload.readUInt32LE(0);
+                    const nameLen = payload.readUInt16LE(4);
+                    let stallName = null;
+                    if (nameLen > 0 && 6 + nameLen <= payload.length) {
+                        stallName = payload.slice(6, 6 + nameLen).toString('ascii');
+                    }
+                    Logger.info(`[STALL] 0x30BB TITLE_UPDATE uid=${uniqueId} name=${stallName || '?'}`, 'PacketRouter');
+                    if (this.session?.wsSession) {
+                        this.session.wsSession.sendEvent('', {
+                            type: 'ENTITY_UPDATE',
+                            uniqueId,
+                            stallName,
+                        });
+                    }
+                }
+            },
+            '0x3122': (rawPacket, packetObj) => Logger.info(`[UNHANDLED] opcode=${packetObj.opcode} size=${packetObj.size}`, 'PacketRouter'),
         };
     }
 
     route(rawPacket, packetObj) {
         const opcode = packetObj.opcode.toLowerCase();
         const handler = this.handlers[opcode];
+
+        // LOG MASIVO: mostrar TODOS los opcodes que pasan por aquí
+        const size = packetObj.size || rawPacket.length;
+        const showOpcodes = ['0x3015','0x3016','0x3017','0x3018','0x3019','0x34b5','0x34a5','0x34a6','0x3013','0xb023','0x3020','0xb021'];
+        if (opcode !== '0x2002') {
+            const hex = rawPacket.length < 500 ? rawPacket.slice(0, 80).toString('hex').toUpperCase() : rawPacket.slice(0, 40).toString('hex').toUpperCase() + '...';
+            const isInteresting = showOpcodes.includes(opcode);
+            if (isInteresting) {
+                Logger.info(`[ROUTE] ═══ ${packetObj.opcode} size=${size} hex=${hex}`, 'PacketRouter');
+            } else {
+                Logger.debug(`[ROUTE] ${packetObj.opcode} size=${size}`, 'PacketRouter');
+            }
+        }
 
         if (!handler) {
             // Solo loggear opcodes sin handler que no sean heartbeats

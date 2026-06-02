@@ -34,21 +34,26 @@ export function useMapInteractions({
       if (me.worldX == null || me.worldZ == null) return prev;
 
       let clickWX, clickWZ;
+      let clPx, clPy, tileOrigin, localX, localZ; // declaradas fuera para el log
 
       if (!isCity) {
-        const clPx = Math.max(0, Math.min(MAP_CANVAS_W, px));
-        const clPy = Math.max(0, Math.min(MAP_CANVAS_H, py));
+        clPx = Math.max(0, Math.min(MAP_CANVAS_W, px));
+        clPy = Math.max(0, Math.min(MAP_CANVAS_H, py));
         // Convertir píxel del canvas a coordenadas del mundo
         // El tile central (TILE_RADIUS, TILE_RADIUS) empieza en (TILE_RADIUS*R, TILE_RADIUS*R)
         // y corresponde a la región donde está el jugador
-        const tileOrigin = TILE_RADIUS * R;
-        const localX = clPx - tileOrigin;  // offset local en píxeles
-        const localZ = tileOrigin - clPy;
-        // La región del jugador
+        tileOrigin = TILE_RADIUS * R;
+        // Offset en píxeles desde el tile central (puede ser negativo si se clica a la izquierda)
+        localX = clPx - tileOrigin;
+        localZ = tileOrigin - clPy;
+        // La región del jugador (en coordenadas centradas, base 0)
         const playerRX = Math.floor(me.worldX / R);
         const playerRZ = Math.floor(me.worldZ / R);
+        // clickWX/Z en world units (sistema centrado, base 0)
         clickWX = (playerRX * R) + localX;
         clickWZ = (playerRZ * R) + localZ;
+        // Permitir clic en el mismo tile: no hay restricción de distancia mínima
+        // (el guard de MAX_CLICK_WU más abajo ya limita la distancia máxima)
 
         // Validación de Región (sistema centrado → absoluto)
         const rX = Math.floor(clickWX / R) + 135;
@@ -92,9 +97,9 @@ export function useMapInteractions({
         tWZ = me.worldZ + (dz / dist) * MAX_CLICK_WU;
       }
 
-      setTargetWorld({ wx: tWX, wz: tWZ });
+      setTargetWorld({ wx: tWX, wz: tWZ, px: clPx, py: clPy });
 
-      // Enviar movimiento al backend para que lo reenvíe al game server (0x7021)
+      // Enviar movimiento al backend
       if (wsSend && !isCity) {
         // Convertir de centrado a absoluto para el envío
         const targetRX = Math.floor(tWX / R) + 135;
@@ -102,6 +107,21 @@ export function useMapInteractions({
         const targetRegion = targetRX | (targetRZ << 8);
         const targetLocalX = Math.round(tWX - (targetRX - 135) * R);
         const targetLocalZ = Math.round(tWZ - (targetRZ - 92) * R);
+        
+        // LOG DETALLADO: coordenadas del click
+        console.log('═══════════════════════════════════════════');
+        console.log('📍 [CLICK] Pixel en canvas:', { px: clPx, py: clPy });
+        console.log('📍 [CLICK] tileOrigin:', tileOrigin, 'localX:', localX, 'localZ:', localZ);
+        console.log('📍 [CLICK] player world (centrado):', { worldX: me.worldX, worldZ: me.worldZ });
+        console.log('📍 [CLICK] player region (absoluto):', { rX: Math.floor(me.worldX / R) + 135, rZ: Math.floor(me.worldZ / R) + 92 });
+        console.log('📍 [CLICK] clickWX/WZ (centrado):', { clickWX: Math.round(clickWX), clickWZ: Math.round(clickWZ) });
+        console.log('📍 [CLICK] targetWX/WZ (centrado, limitado):', { tWX: Math.round(tWX), tWZ: Math.round(tWZ) });
+        console.log('📍 [CLICK] target region (absoluto):', { targetRX, targetRZ });
+        console.log('📍 [CLICK] target local offset:', { targetLocalX, targetLocalZ });
+        console.log('📍 [CLICK] target region ID:', targetRegion);
+        console.log('📍 [CLICK] REGIONS existe:', REGIONS.some(reg => reg.x === targetRX && reg.z === targetRZ));
+        console.log('═══════════════════════════════════════════');
+        
         // Validar que las coordenadas estén en rango antes de enviar
         if (targetRX >= 26 && targetRX <= 252 && targetRZ >= 37 && targetRZ <= 126 &&
           targetLocalX >= 0 && targetLocalX <= 192 && targetLocalZ >= 0 && targetLocalZ <= 192) {
@@ -110,14 +130,16 @@ export function useMapInteractions({
             region: targetRegion,
             posX: targetLocalX,
             posZ: targetLocalZ,
-            posY: me.posY ?? 0,
           });
+        } else {
+          console.warn('⚠️ [CLICK] Coordenadas fuera de rango — NO se envía MOVE');
         }
       }
 
       return {
         ...prev,
-        me: { ...me, _targetWX: tWX, _targetWZ: tWZ, moving: true, isFollowingPlayer: true, cameraWX: tWX, cameraWZ: tWZ }
+        // Ya no guardamos _targetWX/WZ — el player se mueve solo con PLAYER_STOPPED
+        me: { ...me, isFollowingPlayer: true }
       };
     });
   };
