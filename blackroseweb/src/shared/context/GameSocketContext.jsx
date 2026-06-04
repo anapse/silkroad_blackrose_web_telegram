@@ -6,6 +6,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { loadEntityData } from "../../game/utils/entityNames.js";
 import { regionToWorld } from "../../game/utils/geo.js";
 import { GAME_CONSTANTS } from "../constants/gameConstants.js";
+import { processEntityMove, clearEntityBuffer } from "../../game/hooks/useEntityManager.js";
 const UNITS_PER_REGION = GAME_CONSTANTS.MAP.UNITS_PER_REGION;
 
 // Valor por defecto para evitar crashes cuando el provider no está montado
@@ -272,47 +273,33 @@ export function GameSocketProvider({ children }) {
               return;
             }
             console.log(`[ENTITY_MOVE] 🚶 uid=${d.uniqueId} dstRegion=${d.dstRegion} dstX=${d.dstX} dstZ=${d.dstZ}`);
-            // Usar ÚNICA función centralizada
-            const regionId = Number(d.dstRegion) || 0;
-            // movement: usar type='movement' porque el orden de ejes es X,Z,Y
-            const { regionX: dstRegionX, regionZ: dstRegionZ, worldX: dstWorldX, worldZ: dstWorldZ } = regionToWorld(regionId, d.dstX, d.dstZ, d.dstY, 'movement');
+            // Usar ÚNICA función centralizada + suavizado con useEntityManager
             setEntities((prev) => {
-              if (!prev[d.uniqueId]) {
-                console.log(`[ENTITY_MOVE] ⚠️ uid=${d.uniqueId} NO ENCONTRADO - CREANDO como CHAR`);
+              const entityData = prev[d.uniqueId] || null;
+              const isNew = !entityData;
+
+              // Si es nuevo, preparar datos base
+              let baseData = entityData;
+              if (isNew) {
                 const cachedName = nameCacheRef.current[d.uniqueId];
-                const newName = cachedName ? cachedName : `Player#${d.uniqueId}`;
-                return {
-                  ...prev,
-                  [d.uniqueId]: {
-                    uniqueId: d.uniqueId,
-                    entityType: 'CHAR',
-                    region: d.dstRegion,
-                    regionX: dstRegionX,
-                    regionZ: dstRegionZ,
-                    posX: d.dstX,
-                    posZ: d.dstZ,
-                    posY: d.dstY || 0,
-                    worldX: dstWorldX,
-                    worldZ: dstWorldZ,
-                    name: newName,
-                    _targetWX: dstWorldX,
-                    _targetWZ: dstWorldZ,
-                  }
+                baseData = {
+                  uniqueId: d.uniqueId,
+                  entityType: d.entityType || 'CHAR',
+                  name: cachedName ? cachedName : `Player#${d.uniqueId}`,
                 };
+                console.log(`[ENTITY_MOVE] ⚠️ uid=${d.uniqueId} NO ENCONTRADO - CREANDO como CHAR con suavizado`);
               }
+
+              // Procesar con suavizado de movimiento
+              const smoothed = processEntityMove(baseData, d, regionToWorld);
+
+              if (!smoothed) return prev;
+
               return {
                 ...prev,
                 [d.uniqueId]: {
-                  ...prev[d.uniqueId],
-                  region: d.dstRegion,
-                  regionX: dstRegionX,
-                  regionZ: dstRegionZ,
-                  posX: d.dstX,
-                  posZ: d.dstZ,
-                  worldX: dstWorldX,
-                  worldZ: dstWorldZ,
-                  _targetWX: dstWorldX,
-                  _targetWZ: dstWorldZ,
+                  ...(entityData || {}),
+                  ...smoothed,
                 }
               };
             });
@@ -320,6 +307,7 @@ export function GameSocketProvider({ children }) {
 
           if (msg.detail?.type === "ENTITY_DESPAWN") {
             const d = msg.detail;
+            clearEntityBuffer(d.uniqueId); // Limpiar buffer de suavizado
             setEntities((prev) => { const next = { ...prev }; delete next[d.uniqueId]; return next; });
           }
 
@@ -341,6 +329,7 @@ export function GameSocketProvider({ children }) {
                   worldZ,
                   regionX,
                   regionZ,
+                  _source: 'PLAYER_MOVE_CONFIRMED', // ← para que packetQueue lo priorice
                 };
                 if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
                 return { ...prev, ...updates };
@@ -367,6 +356,7 @@ export function GameSocketProvider({ children }) {
                 posX: sameRegion ? (d.posX ?? prev.posX) : prev.posX,
                 posY: sameRegion ? (d.posY ?? prev.posY) : prev.posY,
                 posZ: sameRegion ? (d.posZ ?? prev.posZ) : prev.posZ,
+                _source: 'PLAYER_UPDATE', // ← para que packetQueue lo diferencie
               };
             });
           }

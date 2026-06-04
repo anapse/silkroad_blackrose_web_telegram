@@ -285,6 +285,10 @@ export default function GameContainer({ user, character }) {
     document.body.classList.toggle('show-grid', debug);
   }, [debug]);
 
+  // ── LERP DE CÁMARA (suavizado de oscilación) ──
+  const cameraLerpRef = useRef({ cRX: null, cRZ: null, targetRX: null, targetRZ: null });
+  const CAMERA_LERP_FACTOR = 0.1; // 10% por frame — suave y responsivo
+
   const world = useMMOCamera(2);
   const city  = useMMOCamera(6);
   const isCity = currentMap !== "world";
@@ -614,28 +618,53 @@ export default function GameContainer({ user, character }) {
           return { x, y };
         };
 
-        // World Map Offset
+        // World Map Offset (con LERP de cámara para eliminar oscilación)
         let worldOffsetX = 0, worldOffsetY = 0;
         if (!isCity && me.worldX != null && me.worldZ != null) {
           const vp = world.viewportRef.current;
           const cv = world.canvasRef.current;
           
-          // Calcular posición del canvas de forma estable desde worldX/worldZ
-          // Usamos worldToRender con el propio jugador como referencia → da el centro del canvas
-          // El tile central (TILE_RADIUS, TILE_RADIUS) = (TILE_RADIUS*R, TILE_RADIUS*R) en píxeles
-          // y corresponde a la región actual del jugador
-          // Posición del player en el canvas usando la función ESTÁNDAR centralizada
+          // Calcular posición TARGET del canvas (lo que la cámara "quiere" ver)
           const rX = Math.floor(me.worldX / R) + 135;
           const rZ = Math.floor(me.worldZ / R) + 92;
           const localX = me.worldX - (rX - 135) * R;
           const localZ = me.worldZ - (rZ - 92) * R;
           const { canvasX: stableRX, canvasZ: stableRZ } = coordToCanvas(rX, rZ, localX, localZ, rX, rZ);
           
-          const cRX = me.isFollowingPlayer ? stableRX : (TILE_RADIUS * UNITS_PER_REGION) + (me.cameraWX - (Math.floor(me.cameraWX / UNITS_PER_REGION) * UNITS_PER_REGION));
-          const cRZ = me.isFollowingPlayer ? stableRZ : (TILE_RADIUS * UNITS_PER_REGION) - (me.cameraWZ - (Math.floor(me.cameraWZ / UNITS_PER_REGION) * UNITS_PER_REGION));
+          const targetRX = me.isFollowingPlayer ? stableRX : (TILE_RADIUS * UNITS_PER_REGION) + (me.cameraWX - (Math.floor(me.cameraWX / UNITS_PER_REGION) * UNITS_PER_REGION));
+          const targetRZ = me.isFollowingPlayer ? stableRZ : (TILE_RADIUS * UNITS_PER_REGION) - (me.cameraWZ - (Math.floor(me.cameraWZ / UNITS_PER_REGION) * UNITS_PER_REGION));
           
-          if (isNaN(cRX) || isNaN(cRZ)) { worldOffsetX = 0; worldOffsetY = 0; }
+          if (isNaN(targetRX) || isNaN(targetRZ)) { worldOffsetX = 0; worldOffsetY = 0; }
           else {
+            // ── LERP: suavizar la posición de la cámara ──
+            const lerp = cameraLerpRef.current;
+            const lerpFactor = CAMERA_LERP_FACTOR;
+
+            // Inicializar si es primera vez
+            if (lerp.cRX === null || lerp.cRZ === null) {
+              lerp.cRX = targetRX;
+              lerp.cRZ = targetRZ;
+            }
+
+            // Aplicar LERP: mover actual → target
+            lerp.cRX += (targetRX - lerp.cRX) * lerpFactor;
+            lerp.cRZ += (targetRZ - lerp.cRZ) * lerpFactor;
+
+            // Si la diferencia es muy pequeña, saltar directo al target
+            const diffX = Math.abs(targetRX - lerp.cRX);
+            const diffZ = Math.abs(targetRZ - lerp.cRZ);
+            if (diffX < 0.01) lerp.cRX = targetRX;
+            if (diffZ < 0.01) lerp.cRZ = targetRZ;
+
+            const cRX = lerp.cRX;
+            const cRZ = lerp.cRZ;
+
+            // Log de diagnóstico cuando el delta es significativo
+            const maxDiff = Math.max(diffX, diffZ);
+            if (maxDiff > 0.05) {
+              console.log(`📍 [CAMERA] cRX estabilizado: Δ=${maxDiff.toFixed(2)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${cRX.toFixed(1)},${cRZ.toFixed(1)})`);
+            }
+
             const vpW = vp ? vp.offsetWidth : window.innerWidth;
             const vpH = vp ? vp.offsetHeight : window.innerHeight;
             const rawX = vpW / 2 - cRX * world.zoom;
@@ -646,7 +675,6 @@ export default function GameContainer({ user, character }) {
             } else {
               worldOffsetX = rawX; worldOffsetY = rawY;
             }
-            console.log('📍 [CAMERA] worldOffset:', { worldOffsetX, worldOffsetY, cRX, cRZ, zoom: world.zoom });
           }
         }
 
@@ -704,7 +732,7 @@ export default function GameContainer({ user, character }) {
             className="gc-map-canvas"
             style={{
               transform: `translate3d(${worldOffsetX}px,${worldOffsetY}px,0) scale(${world.zoom})`,
-              transition: 'transform 0.4s cubic-bezier(0.2, 0, 0.2, 1)',
+              transition: 'transform 0.05s linear',
               width: MAP_CANVAS_W,
               height: MAP_CANVAS_H,
               position: 'relative',
