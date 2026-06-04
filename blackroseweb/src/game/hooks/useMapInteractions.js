@@ -24,36 +24,43 @@ export function useMapInteractions({
   const handleMapClick = (e, zoomLevel) => {
     if (camera.dragRef.current.moved) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / zoomLevel;
-    const py = (e.clientY - rect.top) / zoomLevel;
+    // Usar el canvas para obtener coordenadas correctas con zoom y offset
+    const canvas = camera.canvasRef.current;
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+
+    // px/py en espacio lógico del canvas (compensando zoom)
+    const px = (e.clientX - canvasRect.left) / zoomLevel;
+    const py = (e.clientY - canvasRect.top) / zoomLevel;
+
+    console.log('📍 [CLICK] px/py después de viewport:', { px, py });
+    console.log('📍 [CLICK] canvas offset actual:', { 
+        worldOffsetX: camera.canvasRef?.current?.style?.transform 
+    });
 
     setPlayers(prev => {
       const me = prev.me;
       // No hacer nada si el jugador no tiene posición todavía
       if (me.worldX == null || me.worldZ == null) return prev;
 
-      let clickWX, clickWZ;
-      let clPx, clPy, tileOrigin, localX, localZ; // declaradas fuera para el log
+      let clickWX, clickWZ, clPx, clPy;
 
       if (!isCity) {
-        clPx = Math.max(0, Math.min(MAP_CANVAS_W, px));
-        clPy = Math.max(0, Math.min(MAP_CANVAS_H, py));
-        // Convertir píxel del canvas a coordenadas del mundo
-        // El tile central (TILE_RADIUS, TILE_RADIUS) empieza en (TILE_RADIUS*R, TILE_RADIUS*R)
-        // y corresponde a la región donde está el jugador
-        tileOrigin = TILE_RADIUS * R;
-        // Offset en píxeles desde el tile central (puede ser negativo si se clica a la izquierda)
-        localX = clPx - tileOrigin;
-        localZ = tileOrigin - clPy;
-        // La región del jugador (en coordenadas centradas, base 0)
-        const playerRX = Math.floor(me.worldX / R);
-        const playerRZ = Math.floor(me.worldZ / R);
-        // clickWX/Z en world units (sistema centrado, base 0)
-        clickWX = (playerRX * R) + localX;
-        clickWZ = (playerRZ * R) + localZ;
-        // Permitir clic en el mismo tile: no hay restricción de distancia mínima
-        // (el guard de MAX_CLICK_WU más abajo ya limita la distancia máxima)
+        clPx = px;
+        clPy = py;
+
+        // El player siempre está en coordenadas de canvas calculadas por coordToCanvas
+        // playerCanvasX = TILE_RADIUS * R + posX = 960 + posX
+        // playerCanvasZ = TILE_RADIUS * R + (R - posZ) = 960 + (192 - posZ)
+        const playerCanvasX = TILE_RADIUS * R + (me.posX ?? 0);
+        const playerCanvasZ = TILE_RADIUS * R + (R - (me.posZ ?? 0));
+
+        // Diferencia en píxeles de canvas = diferencia en world units (scale=1)
+        const dWX = clPx - playerCanvasX;
+        const dWZ = -(clPy - playerCanvasZ); // invertido porque Z positivo = norte = arriba en canvas
+
+        clickWX = me.worldX + dWX;
+        clickWZ = me.worldZ + dWZ;
 
         // Validación de Región (sistema centrado → absoluto)
         const rX = Math.floor(clickWX / R) + 135;
@@ -109,27 +116,33 @@ export function useMapInteractions({
         const targetLocalZ = Math.round(tWZ - (targetRZ - 92) * R);
         
         // LOG DETALLADO: coordenadas del click
+        const clampedLocalX = Math.min(191, Math.max(0, targetLocalX));
+        const clampedLocalZ = Math.min(191, Math.max(0, targetLocalZ));
         console.log('═══════════════════════════════════════════');
         console.log('📍 [CLICK] Pixel en canvas:', { px: clPx, py: clPy });
-        console.log('📍 [CLICK] tileOrigin:', tileOrigin, 'localX:', localX, 'localZ:', localZ);
-        console.log('📍 [CLICK] player world (centrado):', { worldX: me.worldX, worldZ: me.worldZ });
-        console.log('📍 [CLICK] player region (absoluto):', { rX: Math.floor(me.worldX / R) + 135, rZ: Math.floor(me.worldZ / R) + 92 });
-        console.log('📍 [CLICK] clickWX/WZ (centrado):', { clickWX: Math.round(clickWX), clickWZ: Math.round(clickWZ) });
-        console.log('📍 [CLICK] targetWX/WZ (centrado, limitado):', { tWX: Math.round(tWX), tWZ: Math.round(tWZ) });
-        console.log('📍 [CLICK] target region (absoluto):', { targetRX, targetRZ });
-        console.log('📍 [CLICK] target local offset:', { targetLocalX, targetLocalZ });
-        console.log('📍 [CLICK] target region ID:', targetRegion);
-        console.log('📍 [CLICK] REGIONS existe:', REGIONS.some(reg => reg.x === targetRX && reg.z === targetRZ));
+        console.log('📍 [CLICK] player world:', { worldX: me.worldX, worldZ: me.worldZ });
+        console.log('📍 [CLICK] player region absoluto:', { 
+            rX: Math.floor(me.worldX / R) + 135, 
+            rZ: Math.floor(me.worldZ / R) + 92 
+        });
+        console.log('📍 [CLICK] clickWX/WZ:', { clickWX: Math.round(clickWX), clickWZ: Math.round(clickWZ) });
+        console.log('📍 [CLICK] targetWX/WZ:', { tWX: Math.round(tWX), tWZ: Math.round(tWZ) });
+        console.log('📍 [CLICK] target region absoluto:', { targetRX, targetRZ });
+        console.log('📍 [CLICK] target local offset raw:', { targetLocalX, targetLocalZ });
+        console.log('📍 [CLICK] target local offset clamped:', { clampedLocalX, clampedLocalZ });
+        console.log('📍 [CLICK] px/py raw antes de clamp:', { px, py });
+        console.log('📍 [CLICK] rect canvas:', { 
+            left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height 
+        });
         console.log('═══════════════════════════════════════════');
         
         // Validar que las coordenadas estén en rango antes de enviar
-        if (targetRX >= 26 && targetRX <= 252 && targetRZ >= 37 && targetRZ <= 126 &&
-          targetLocalX >= 0 && targetLocalX <= 192 && targetLocalZ >= 0 && targetLocalZ <= 192) {
+        if (targetRX >= 26 && targetRX <= 252 && targetRZ >= 37 && targetRZ <= 126) {
           wsSend({
             type: 'MOVE',
             region: targetRegion,
-            posX: targetLocalX,
-            posZ: targetLocalZ,
+            posX: clampedLocalX,
+            posZ: clampedLocalZ,
           });
         } else {
           console.warn('⚠️ [CLICK] Coordenadas fuera de rango — NO se envía MOVE');

@@ -127,7 +127,7 @@ function buildMapGrid() {
         // posX/posZ inside tile → Silkroad units (0‥768)
         unitsWide: TILE_STEP * UNITS_PER_REGION,
       });
-      row.push({ x, z, src: `/interface/worldmap/map/map_world_${x}x${z}.png` });
+      row.push({ x, z, src: `/interface/minimap/${x}x${z}.webp` });
     }
     rows.push(row);
   }

@@ -6,7 +6,7 @@ export async function getconnection() {
         const pool = await sql.connect(DB_CONFIG)
         return pool;
     } catch (error) {
-        // Error de conexión
+        console.error('[DB] Error de conexión:', error.message);
+        throw error;
     }
-
 }

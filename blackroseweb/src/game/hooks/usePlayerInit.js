@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { GAME_CONSTANTS } from "../../shared/constants/gameConstants.js";
-import { playerToCanvas } from "../utils/geo.js";
+import { playerToCanvas, regionXYToWorld } from "../utils/geo.js";
 
 const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
 const MAP_CANVAS_H = GAME_CONSTANTS.MAP.CANVAS_H;
@@ -47,12 +47,11 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     if (!wsPlayer || wsPlayer.region == null || wsPlayer.posX == null) return;
 
     const regionId = Number(wsPlayer.region);
-    const regionX = regionId & 0xFF;
-    const regionZ = (regionId >> 8) & 0xFF;
     const posX = Number(wsPlayer.posX);
     const posZ = Number(wsPlayer.posZ ?? 0);
-    const worldX = ((regionX - 135) * UNITS_PER_REGION) + posX;
-    const worldZ = ((regionZ - 92) * UNITS_PER_REGION) + posZ;
+    const { regionX, regionZ, worldX, worldZ } = regionXYToWorld(
+      regionId & 0xFF, (regionId >> 8) & 0xFF, posX, posZ
+    );
     const posY = wsPlayer?.posY ?? null;
 
     // Detectar si el servidor detuvo al jugador (PLAYER_STOPPED)

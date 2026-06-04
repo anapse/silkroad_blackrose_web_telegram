@@ -21,7 +21,7 @@ export const ENV = {
 
     // ===== BASE DE DATOS =====
     DB_USER: process.env.DB_USER || 'sa',
-    DB_PASSWORD: process.env.DB_PASSWORD,
+    DB_PASSWORD: process.env.DB_PASSWORD || '',
     DB_SERVER: process.env.DB_SERVER || 'localhost',
     DB_PORT: Number(process.env.DB_PORT || 51551),
     DB_NAME: process.env.DB_NAME || 'SRO_VT_SHARD',

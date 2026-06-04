@@ -51,7 +51,7 @@ export function useMMOCamera(initZoom = 1) {
   };
 
   const zoomIn = () => setZoom((z) => Math.min(50.0, +(z * 1.3).toFixed(2)));
-  const zoomOut = () => setZoom((z) => Math.max(0.5, +(z / 1.3).toFixed(2)));
+  const zoomOut = () => setZoom((z) => +(z / 1.3).toFixed(2));
   const reset = (z) => setZoom(z);
 
   return {

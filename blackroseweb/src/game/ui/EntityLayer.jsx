@@ -33,14 +33,28 @@ export function EntityLayer({
   const [entityHover, setEntityHover] = useState(null);
   const renderCountRef = useRef(0);
 
-  // Memoizar entidades y resolver nombres
+  // Memoizar entidades, resolver nombres y calcular posición en canvas
   // Depende de me.regionX/Z para recalcular cuando el player obtiene posición
+  // (así las entidades aparecen aunque entities no haya cambiado)
   const entityList = useMemo(() => {
+    const pRX = me?.regionX;
+    const pRZ = me?.regionZ;
     const list = Object.values(entities || {}).map(e => {
-      // Intentar nombre desde: 1) datos por refObjId, 2) nameCache por uniqueId, 3) fallback
       const resolvedName = getEntityName(e.refObjId, e.entityType);
       const displayName = resolvedName || e.name || `${e.entityType || '?'}#${e.refObjId || e.uniqueId}`;
-      return { ...e, displayName };
+      // Calcular renderX/renderZ AQUÍ dentro del memo, no en el JSX
+      // Así cuando me.regionX cambie de null→valor, el memo recalcula con coords válidas
+      let renderX = undefined, renderZ = undefined;
+      if (pRX != null && pRZ != null && e.regionX != null && e.regionZ != null) {
+        const { canvasX, canvasZ } = coordToCanvas(
+          e.regionX, e.regionZ,
+          e.posX ?? 0, e.posZ ?? 0,
+          pRX, pRZ
+        );
+        renderX = canvasX;
+        renderZ = canvasZ;
+      }
+      return { ...e, displayName, renderX, renderZ };
     });
     return list;
   }, [entities, me?.regionX, me?.regionZ]);
@@ -87,18 +101,15 @@ export function EntityLayer({
   return (
     <>
       {entityList.map(entity => {
-        if (entity.regionX == null || entity.regionZ == null) {
-          console.log(`[EntityLayer] ⚠️ SALTADO region null: ${entity.displayName} uid=${entity.uniqueId} regionX=${entity.regionX} regionZ=${entity.regionZ}`);
+        // renderX/renderZ ya vienen calculados desde el useMemo
+        if (entity.renderX == null || isNaN(entity.renderX) || entity.renderZ == null || isNaN(entity.renderZ)) {
+          if (entity.regionX != null && entity.regionZ != null) {
+            console.log(`[EntityLayer] ⚠️ render INVALIDO: ${entity.displayName} uid=${entity.uniqueId} renderX=${entity.renderX} renderZ=${entity.renderZ} region=(${entity.regionX},${entity.regionZ}) pos=(${entity.posX},${entity.posZ})`);
+          }
           return null;
         }
-
-        // Usar posición ABSOLUTA en canvas (basada en región, NO en me.worldX)
-        const { renderX, renderZ } = entityToCanvas(entity, me.regionX, me.regionZ);
-
-        if (renderX == null || isNaN(renderX) || renderZ == null || isNaN(renderZ)) {
-          console.log(`[EntityLayer] ⚠️ render INVALIDO: ${entity.displayName} uid=${entity.uniqueId} renderX=${renderX} renderZ=${renderZ} region=(${entity.regionX},${entity.regionZ}) pos=(${entity.posX},${entity.posZ})`);
-          return null;
-        }
+        const renderX = entity.renderX;
+        const renderZ = entity.renderZ;
 
         // Determinar tipo REAL (el servidor clasifica por rango, no por tipo real)
         const realType = getRealEntityType(entity.refObjId) || entity.entityType || '?';

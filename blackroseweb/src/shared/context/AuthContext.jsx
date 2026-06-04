@@ -21,8 +21,15 @@ export function AuthProvider({ children }) {
       throw new Error(data.message || "Credenciales incorrectas");
     }
 
-    setUser(data);
-    return data;
+    // Normalizar la forma del usuario
+    const userData = {
+      name: data.user,
+      email: data.email,
+      jid: data.jid,
+      token: data.token,
+    };
+    setUser(userData);
+    return userData;
   };
 
   // Guardar usuario directamente desde WebSocket (sin HTTP)

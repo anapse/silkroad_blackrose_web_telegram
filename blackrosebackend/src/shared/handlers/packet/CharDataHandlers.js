@@ -200,7 +200,7 @@ export function createCharDataHandlers(router) {
                             Math.abs(xo) < 2000 && Math.abs(zo) < 2000 && Math.abs(yo) < 2000 &&
                             !(Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001)) {
                             playerUniqueId = uid;
-                            const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'chardata');
+                            const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'spawn');
                             initPos = { region: coords.region, posX: coords.posX, posZ: coords.posZ, posY: coords.posY };
                             Logger.info('[CHAR_DATA] Position found (sequential): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (yo / 10).toFixed(1) + ' y=' + (zo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         } else {
@@ -231,7 +231,7 @@ export function createCharDataHandlers(router) {
                         if (Math.abs(xo) > 2000 || Math.abs(zo) > 2000 || Math.abs(yo) > 2000) continue;
                         if (Math.abs(xo) < 0.001 && Math.abs(zo) < 0.001 && Math.abs(yo) < 0.001) continue;
                         playerUniqueId = uid;
-                        const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'chardata');
+                        const coords = calcWorldCoords(xs, ys, xo, yo, zo, 'spawn');
                         initPos = { region: coords.region, posX: coords.posX, posZ: coords.posZ, posY: coords.posY };
                         Logger.info('[CHAR_DATA] Position found (backward scan): region=' + region + ' (' + xs + ',' + ys + ') x=' + (xo / 10).toFixed(1) + ' z=' + (yo / 10).toFixed(1) + ' y=' + (zo / 10).toFixed(1) + ' uid=' + uid, 'CharData');
                         break;

@@ -22,6 +22,7 @@ import UnderBar from "./hud/UnderBar.jsx";
 import GameCanvas from "./GameCanvas.jsx";
 import GameHUD from "./GameHUD.jsx";
 import GameWindowManager from "./GameWindowManager.jsx";
+import UnifiedGameWindow from "./windows/UnifiedGameWindow.jsx";
 
 const { MAP, MOVEMENT, ICONS, SPAWN } = GAME_CONSTANTS;
 const {
@@ -128,6 +129,24 @@ function getTilesAroundPlayer(regionX, regionZ) {
       tiles.push({ key:`${x}_${z}`, tileX:x, tileZ:z, src:`/interface/minimap/${x}x${z}.webp`, screenX, screenY });
     }
   }
+  return tiles;
+}
+
+// Genera tiles para TODO el mapa (de MAP_MIN_X a MAP_MAX_X, MAP_MIN_Z a MAP_MAX_Z)
+let allTilesCache = null;
+function buildAllTiles() {
+  if (allTilesCache) return allTilesCache;
+  WORLD_GRID = [];
+  const tiles = [];
+  for (let z = MAP_MAX_Z; z >= MAP_MIN_Z; z--) {
+    for (let x = MAP_MIN_X; x <= MAP_MAX_X; x++) {
+      const screenX = (x - MAP_MIN_X) * BASE_TILE_SZ;
+      const screenY = (MAP_MAX_Z - z) * BASE_TILE_SZ;
+      WORLD_GRID.push({ tileX: x, tileZ: z, screenX, screenY, unitsWide: UNITS_PER_REGION });
+      tiles.push({ key: `${x}_${z}`, tileX: x, tileZ: z, src: `/interface/minimap/${x}x${z}.webp`, screenX, screenY });
+    }
+  }
+  allTilesCache = tiles;
   return tiles;
 }
 
@@ -270,21 +289,15 @@ export default function GameContainer({ user, character }) {
   const city  = useMMOCamera(6);
   const isCity = currentMap !== "world";
 
+  // Cargar tiles alrededor del jugador
   useEffect(() => {
     const cx = players.me?.regionX;
     const cz = players.me?.regionZ;
     if (!cx || !cz) return;
     if (cx === lastRegion.current.x && cz === lastRegion.current.z) return;
-    const prevRegion = lastRegion.current;
     lastRegion.current = { x: cx, z: cz };
     const newTiles = getTilesAroundPlayer(cx, cz);
     setVisibleTiles(newTiles);
-    
-    // Si cambió la región, guardar tiles viejos para fade-out
-    if (prevRegion.x !== cx || prevRegion.z !== cz) {
-      // Los tiles viejos se desvanecen (clase CSS .gc-tile-exit)
-      // Los tiles nuevos ya tienen opacidad 1 por defecto
-    }
   }, [players.me?.regionX, players.me?.regionZ]);
 
   useEffect(() => {
@@ -460,7 +473,7 @@ export default function GameContainer({ user, character }) {
       {/* ══ PLAYER HUD ══ */}
       <div className="gc-player-hud">
         <div className="gc-ph-portrait-frame">
-          <img src={`/character/${character?.RefObjID}.gif`} className="gc-ph-portrait" alt="" onError={e => e.target.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='} />
+          <img src={`/character/${character?.refObjId}.gif`} className="gc-ph-portrait" alt="" onError={e => e.target.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='} />
           {/* Decorative circles */}
           <div className="gc-ph-deco" style={{top:4, left:-2}} />
           <div className="gc-ph-deco" style={{top:20, left:-5}} />
@@ -633,6 +646,7 @@ export default function GameContainer({ user, character }) {
             } else {
               worldOffsetX = rawX; worldOffsetY = rawY;
             }
+            console.log('📍 [CAMERA] worldOffset:', { worldOffsetX, worldOffsetY, cRX, cRZ, zoom: world.zoom });
           }
         }
 
@@ -892,8 +906,8 @@ export default function GameContainer({ user, character }) {
           charData={{
             name: character?.CharName || 'rioplay',
             level: me.level,
-            // refObjId: el mismo ID numérico que usa /character/{RefObjID}.gif en el HUD
-            refObjId: character?.RefObjID ?? null,
+            // refObjId: el mismo ID numérico que usa /character/{refObjId}.gif en el HUD
+            refObjId: character?.refObjId ?? null,
             // inventorySize: capacidad total de slots de inventario (desde slot 13).
             // Si el servidor no lo provee, usamos 96 (3 páginas de 32) como default.
             inventorySize: character?.InventorySize ?? 96,

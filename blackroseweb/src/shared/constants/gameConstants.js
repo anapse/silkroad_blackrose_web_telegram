@@ -9,7 +9,7 @@ export const GAME_CONSTANTS = {
   MAP: {
     MIN_X: 26,
     MAX_X: 252,
-    MIN_Z: 37,
+    MIN_Z: 35,
     MAX_Z: 126,
     BASE_TILE_SZ: 192,
     TILE_STEP: 1,

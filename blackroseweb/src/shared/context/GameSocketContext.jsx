@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { loadEntityData } from "../../game/utils/entityNames.js";
+import { regionToWorld } from "../../game/utils/geo.js";
 import { GAME_CONSTANTS } from "../constants/gameConstants.js";
 const UNITS_PER_REGION = GAME_CONSTANTS.MAP.UNITS_PER_REGION;
 
@@ -223,13 +224,9 @@ export function GameSocketProvider({ children }) {
 
           if (msg.detail?.type === "ENTITY_SPAWN") {
             const d = msg.detail;
-            // Descomprimir region en regionX/regionZ (igual que en usePlayerInit)
+            // Usar ÚNICA función centralizada para convertir región+offset a world units
             const regionId = Number(d.region) || 0;
-            const regionX = regionId & 0xFF;
-            const regionZ = (regionId >> 8) & 0xFF;
-            // Calcular world units USANDO SISTEMA CENTRADO
-            const worldX = ((regionX - 135) * UNITS_PER_REGION) + (d.posX || 0);
-            const worldZ = ((regionZ - 92) * UNITS_PER_REGION) + (d.posZ || 0);
+            const { regionX, regionZ, worldX, worldZ } = regionToWorld(regionId, d.posX, d.posZ);
             const entityType = d.entityType || '?';
             const entityName = d.name || `${entityType}#${d.uniqueId}`;
             // Log solo para CHARs (otros jugadores)
@@ -275,18 +272,15 @@ export function GameSocketProvider({ children }) {
               return;
             }
             console.log(`[ENTITY_MOVE] 🚶 uid=${d.uniqueId} dstRegion=${d.dstRegion} dstX=${d.dstX} dstZ=${d.dstZ}`);
+            // Usar ÚNICA función centralizada
+            const regionId = Number(d.dstRegion) || 0;
+            // movement: usar type='movement' porque el orden de ejes es X,Z,Y
+            const { regionX: dstRegionX, regionZ: dstRegionZ, worldX: dstWorldX, worldZ: dstWorldZ } = regionToWorld(regionId, d.dstX, d.dstZ, d.dstY, 'movement');
             setEntities((prev) => {
               if (!prev[d.uniqueId]) {
                 console.log(`[ENTITY_MOVE] ⚠️ uid=${d.uniqueId} NO ENCONTRADO - CREANDO como CHAR`);
-                // Buscar nombre en caché
                 const cachedName = nameCacheRef.current[d.uniqueId];
                 const newName = cachedName ? cachedName : `Player#${d.uniqueId}`;
-                // Crear la entidad sobre la marcha con los datos del movimiento
-                const regionId = Number(d.dstRegion) || 0;
-                const dstRegionX = regionId & 0xFF;
-                const dstRegionZ = (regionId >> 8) & 0xFF;
-                const dstWorldX = ((dstRegionX - 135) * UNITS_PER_REGION) + (d.dstX || 0);
-                const dstWorldZ = ((dstRegionZ - 92) * UNITS_PER_REGION) + (d.dstZ || 0);
                 return {
                   ...prev,
                   [d.uniqueId]: {
@@ -306,12 +300,6 @@ export function GameSocketProvider({ children }) {
                   }
                 };
               }
-              const regionId = Number(d.dstRegion) || 0;
-              const dstRegionX = regionId & 0xFF;
-              const dstRegionZ = (regionId >> 8) & 0xFF;
-              // Calcular world units del destino USANDO SISTEMA CENTRADO
-              const dstWorldX = ((dstRegionX - 135) * UNITS_PER_REGION) + (d.dstX || 0);
-              const dstWorldZ = ((dstRegionZ - 92) * UNITS_PER_REGION) + (d.dstZ || 0);
               return {
                 ...prev,
                 [d.uniqueId]: {
@@ -341,8 +329,19 @@ export function GameSocketProvider({ children }) {
             // las transiciones CSS del canvas offset y el dot del player.
             const d = msg.detail;
             if (d.dstRegion != null && d.dstRegion > 0 && d.dstX != null && d.dstZ != null) {
+              const { regionX, regionZ, worldX, worldZ } = regionToWorld(
+                Number(d.dstRegion), d.dstX, d.dstZ
+              );
               setPlayerState((prev) => {
-                const updates = { region: d.dstRegion, posX: d.dstX, posZ: d.dstZ };
+                const updates = {
+                  region: d.dstRegion,
+                  posX: d.dstX,
+                  posZ: d.dstZ,
+                  worldX,
+                  worldZ,
+                  regionX,
+                  regionZ,
+                };
                 if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
                 return { ...prev, ...updates };
               });

@@ -204,8 +204,11 @@ class WebSocketSession {
               const regionX = region & 0xFF;
               const regionZ = (region >> 8) & 0xFF;
 
-              const x10 = Math.round((posX || 0) * 10);
-              const z10 = Math.round((posZ || 0) * 10);
+              // Clamp de seguridad: los offsets locales van de 0 a 191 (inclusive)
+              const clampedPosX = Math.min(191, Math.max(0, posX || 0));
+              const clampedPosZ = Math.min(191, Math.max(0, posZ || 0));
+              const x10 = Math.round(clampedPosX * 10);
+              const z10 = Math.round(clampedPosZ * 10);
               const y10 = Math.round(altY * 10);
 
               Logger.info(`[MOVE] Sending 0x7021 region=${region} (${regionX},${regionZ}) xOffset=${x10} zOffset(NS)=${z10} yOffset(H)=${y10}`, 'WebSocketSession');

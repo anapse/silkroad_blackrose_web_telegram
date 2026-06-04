@@ -174,11 +174,13 @@ export function useGameLoop({
             const e = nextEntities[uid];
             // Solo interpolar si tiene destino
             if (e._targetWX === undefined || e._targetWZ === undefined) continue;
+            // Solo interpolar si tiene worldX válido — nunca mezclar con posX
+            if (e.worldX === undefined || e.worldZ === undefined) continue;
             movingCount++;
 
-            const dx = e._targetWX - (e.worldX ?? e.posX ?? 0);
-            const dz = e._targetWZ - (e.worldZ ?? e.posZ ?? 0);
-            const dist = getDistance(e._targetWX, e._targetWZ, e.worldX ?? e.posX ?? 0, e.worldZ ?? e.posZ ?? 0);
+            const dx = e._targetWX - e.worldX;
+            const dz = e._targetWZ - e.worldZ;
+            const dist = getDistance(e._targetWX, e._targetWZ, e.worldX, e.worldZ);
             const speed = 80 * 0.5; // misma velocidad base que otros players
             const step = speed * dt;
 

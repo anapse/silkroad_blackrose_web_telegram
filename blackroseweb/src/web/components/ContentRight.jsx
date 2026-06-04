@@ -6,7 +6,7 @@ import { urlsapi } from "../../shared/recursos/urlApis.jsx";
 import "../styles/contentRight.css";
 
 function ContentRight() {
-  const { user, login } = useAuth();
+  const { user, login, setWsUser } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ user: "", password: "" });
@@ -51,7 +51,7 @@ function ContentRight() {
         return;
       }
       localStorage.setItem("token", data.token);
-      login({ name: data.user, email: data.email, jid: data.jid }); // 👈 guardar email y jid
+      setWsUser({ name: data.user, email: data.email, jid: data.jid });
       if (telegramId) {
         fetch(urlsapi.telegramLink, {
           method: "POST",
@@ -75,7 +75,7 @@ function ContentRight() {
       .then(data => {
         if (data.status === "OK") {
           localStorage.setItem("token", data.token);
-          login({ name: "TelegramUser" });
+          setWsUser({ name: "TelegramUser" });
           navigate("/");
         }
       });

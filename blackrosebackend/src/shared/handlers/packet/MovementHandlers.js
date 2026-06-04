@@ -131,7 +131,7 @@ export function createMovementHandlers(router) {
                         hasSource,
                         srcRegion: hasSource ? srcRegion : undefined,
                         srcX: hasSource ? Math.round(srcX) : undefined,
-                        srcZ: hasSource ? Math.round(srcZ) : undefined,
+                        srcZ: hasSource ? Math.round(srcZ / 10) : undefined,
                         srcY: hasSource ? Math.round(srcY) : undefined,
                         angle,
                     });
