@@ -74,6 +74,9 @@ export function GameSocketProvider({ children }) {
   const packetHandlersRef = useRef({});
   const nameCacheRef = useRef({});
 
+  // Ref para evitar actualizaciones duplicadas de posición en menos de 100ms
+  const lastPosUpdateRef = useRef({ region: null, posX: null, posZ: null, time: 0 });
+
   const registerPacketHandler = useCallback((opcode, handler) => {
     packetHandlersRef.current[opcode] = handler;
   }, []);
@@ -167,44 +170,69 @@ export function GameSocketProvider({ children }) {
 
           if (msg.detail?.type === "PLAYER_STOPPED") {
             const d = msg.detail;
-            // El servidor detuvo al jugador (colisión o llegada a destino)
-            setPlayerState((prev) => {
-              if (!d.region || d.region <= 0) {
-                return { ...prev, _stopped: Date.now() };
+            // 0xB023 para el player — actualizar posición con dedup
+            if (d.region && d.region > 0 && d.posX != null && d.posZ != null) {
+              const now = Date.now();
+              const last = lastPosUpdateRef.current;
+              const isDuplicate = (
+                last.region === d.region &&
+                last.posX === d.posX &&
+                last.posZ === d.posZ &&
+                now - last.time < 100
+              );
+              if (!isDuplicate) {
+                lastPosUpdateRef.current = { region: d.region, posX: d.posX, posZ: d.posZ, time: now };
+                const { regionX, regionZ, worldX, worldZ } = regionToWorld(
+                  Number(d.region), d.posX, d.posZ
+                );
+                setPlayerState((prev) => ({
+                  ...prev,
+                  region: d.region,
+                  posX: d.posX,
+                  posY: (d.posY != null) ? d.posY : prev.posY,
+                  posZ: d.posZ,
+                  worldX, worldZ, regionX, regionZ,
+                  _stopped: now,
+                }));
               }
-              return {
-                ...prev,
-                region: d.region,
-                posX: (d.posX != null) ? d.posX : prev.posX,
-                posY: (d.posY != null) ? d.posY : prev.posY,
-                posZ: (d.posZ != null) ? d.posZ : prev.posZ,
-                _stopped: Date.now(),
-              };
-            });
+            } else {
+              // Sin posición válida, solo marcar _stopped
+              setPlayerState((prev) => ({ ...prev, _stopped: Date.now() }));
+            }
           }
 
           if (msg.detail?.type === "PLAYER_POSITION_INIT") {
             const d = msg.detail;
             // console.log('[PLAYER_POSITION_INIT]', JSON.stringify({ region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ }));
-            // Solo actualizar si la región es válida (no 0)
-            // Si region=0, el scanner no encontró posición y el frontend
-            // debe mantener su fallback por raza (usePlayerInit.js)
             if (d.region && d.region > 0) {
-              setPlayerState((prev) => {
-                const next = { ...prev, hp: prev.hp || 0, region: d.region, posX: d.posX, posY: d.posY, posZ: d.posZ };
-                return next;
-              });
+              const { regionX, regionZ, worldX, worldZ } = regionToWorld(
+                Number(d.region), d.posX, d.posZ
+              );
+              setPlayerState((prev) => ({
+                ...prev,
+                hp: prev.hp || 0,
+                region: d.region,
+                posX: d.posX, posY: d.posY, posZ: d.posZ,
+                worldX, worldZ, regionX, regionZ,
+              }));
             }
           }
 
           if (msg.detail?.type === "PLAYER_SPAWNED" || msg.status === "IN_GAME") {
             const d = msg.detail || {};
             setPlayerState((prev) => {
-              // Nunca pisar posición válida con undefined
               const newRegion = (d.region != null && d.region > 0) ? d.region : prev.region;
               const newPosX = (d.posX != null) ? d.posX : prev.posX;
               const newPosY = (d.posY != null) ? d.posY : prev.posY;
               const newPosZ = (d.posZ != null) ? d.posZ : prev.posZ;
+
+              // Calcular worldX/worldZ si tenemos posición
+              let worldX = prev.worldX, worldZ = prev.worldZ, regionX = prev.regionX, regionZ = prev.regionZ;
+              if (newRegion > 0 && newPosX != null && newPosZ != null) {
+                const result = regionToWorld(Number(newRegion), newPosX, newPosZ);
+                worldX = result.worldX; worldZ = result.worldZ;
+                regionX = result.regionX; regionZ = result.regionZ;
+              }
 
               return {
                 ...prev,
@@ -215,10 +243,8 @@ export function GameSocketProvider({ children }) {
                 level: d.level ?? prev.level,
                 sp: d.sp ?? prev.sp,
                 exp: d.exp ?? prev.exp,
-                region: newRegion,
-                posX: newPosX,
-                posY: newPosY,
-                posZ: newPosZ,
+                region: newRegion, posX: newPosX, posY: newPosY, posZ: newPosZ,
+                worldX, worldZ, regionX, regionZ,
               };
             });
           }
@@ -313,52 +339,53 @@ export function GameSocketProvider({ children }) {
 
           if (msg.detail?.type === "PLAYER_MOVE_CONFIRMED") {
             // 0xB021 — El servidor confirmó el movimiento.
-            // NO actualizamos posición aquí. Solo registramos el log.
-            // La posición la actualiza exclusivamente PLAYER_UPDATE (0xB023).
+            // Actualizar posición inmediatamente. Usar dedup para evitar
+            // oscilación con PLAYER_STOPPED (0xB023 para el player).
             const d = msg.detail;
             if (d.dstRegion != null && d.dstRegion > 0 && d.dstX != null && d.dstZ != null) {
-              console.log(`[PLAYER_MOVE_CONFIRMED] ✅ Movimiento confirmado por servidor (dstRegion=${d.dstRegion}, dstX=${d.dstX}, dstZ=${d.dstZ}) — sin cambiar posición local`);
+              const now = Date.now();
+              const last = lastPosUpdateRef.current;
+              const isDuplicate = (
+                last.region === d.dstRegion &&
+                last.posX === d.dstX &&
+                last.posZ === d.dstZ &&
+                now - last.time < 100
+              );
+              if (!isDuplicate) {
+                lastPosUpdateRef.current = { region: d.dstRegion, posX: d.dstX, posZ: d.dstZ, time: now };
+                const { regionX, regionZ, worldX, worldZ } = regionToWorld(
+                  Number(d.dstRegion), d.dstX, d.dstZ
+                );
+                setPlayerState((prev) => {
+                  const updates = {
+                    region: d.dstRegion,
+                    posX: d.dstX,
+                    posZ: d.dstZ,
+                    worldX, worldZ, regionX, regionZ,
+                    _source: 'PLAYER_MOVE_CONFIRMED',
+                  };
+                  if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
+                  return { ...prev, ...updates };
+                });
+              }
             }
           }
 
           if (msg.detail?.type === "PLAYER_UPDATE") {
-            // 0xB023 — Única fuente de verdad para la posición del jugador.
-            // El servidor envía la posición periódicamente. Siempre confiamos en ella.
+            // PLAYER_UPDATE solo actualiza stats (HP/MP/level).
+            // NO toca posición — eso lo hacen PLAYER_MOVE_CONFIRMED y PLAYER_STOPPED.
             const d = msg.detail;
-            setPlayerState((prev) => {
-              const sameRegion = d.region == null || d.region === prev.region;
-              const newPosX = sameRegion ? (d.posX ?? prev.posX) : prev.posX;
-              const newPosZ = sameRegion ? (d.posZ ?? prev.posZ) : prev.posZ;
-              const newRegion = d.region ?? prev.region;
-
-              // Calcular worldX/worldZ para referencia (usado en logs y diagnóstico)
-              let worldX = prev.worldX, worldZ = prev.worldZ;
-              if (newRegion && newPosX != null && newPosZ != null) {
-                const { worldX: wX, worldZ: wZ } = regionToWorld(
-                  Number(newRegion), newPosX, newPosZ
-                );
-                worldX = wX;
-                worldZ = wZ;
-              }
-
-              return {
-                ...prev,
-                hp: d.hp ?? prev.hp,
-                maxHp: d.maxHp ?? prev.maxHp,
-                mp: d.mp ?? prev.mp,
-                maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
-                exp: d.exp ?? prev.exp,
-                level: d.level ?? prev.level,
-                sp: d.sp ?? prev.sp,
-                region: newRegion,
-                posX: newPosX,
-                posY: sameRegion ? (d.posY ?? prev.posY) : prev.posY,
-                posZ: newPosZ,
-                worldX,
-                worldZ,
-                _source: 'PLAYER_UPDATE',
-              };
-            });
+            setPlayerState((prev) => ({
+              ...prev,
+              hp: d.hp ?? prev.hp,
+              maxHp: d.maxHp ?? prev.maxHp,
+              mp: d.mp ?? prev.mp,
+              maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
+              exp: d.exp ?? prev.exp,
+              level: d.level ?? prev.level,
+              sp: d.sp ?? prev.sp,
+              // NO actualizar region/posX/posZ/worldX/worldZ
+            }));
           }
 
           if (msg.detail?.type === "INVENTORY_DATA") {
