@@ -1,15 +1,13 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { GAME_CONSTANTS } from "../../shared/constants/gameConstants.js";
+import { useState, useRef, useEffect } from "react";
 import { playerToCanvas, regionXYToWorld } from "../utils/geo.js";
-import { createPacketQueue } from "../../protocol/packetQueue.js";
-
-const MAP_CANVAS_W = GAME_CONSTANTS.MAP.CANVAS_W;
-const MAP_CANVAS_H = GAME_CONSTANTS.MAP.CANVAS_H;
-const TILE_RADIUS = GAME_CONSTANTS.MAP.TILE_RADIUS;
 
 /**
  * Umbral mínimo de cambio de posición (world units) para actualizar el estado.
  * Cambios menores a este valor se ignoran a menos que haya pasado el tiempo máximo.
+ * 
+ * Nota: Con el sistema de posición autoritativa (PLAYER_MOVE_CONFIRMED como única
+ * fuente de escritura), este umbral actúa como defensa en profundidad contra
+ * fluctuaciones sub-pixel.
  */
 const POSITION_THRESHOLD = 0.5;
 const MAX_TIME_BETWEEN_UPDATES_MS = 100;
@@ -18,10 +16,9 @@ const MAX_TIME_BETWEEN_UPDATES_MS = 100;
  * Hook para procesar los datos iniciales del jugador y el personaje.
  * Se re-ejecuta cuando wsPlayer cambia (llega PLAYER_POSITION_INIT, PLAYER_UPDATE, etc).
  * 
- * Incluye sistema de cola de paquetes para evitar oscilación de cámara
- * causada por PLAYER_MOVE_CONFIRMED vs PLAYER_UPDATE compitiendo.
- * 
- * La posición viene EXCLUSIVAMENTE del WebSocket (opcodes del gameserver).
+ * La posición autoritativa viene de PLAYER_MOVE_CONFIRMED (0xB021).
+ * PLAYER_UPDATE (0xB023) ya no modifica posX/posZ a menos que haya
+ * una corrección > 3.0 unidades (manejado en GameSocketContext).
  */
 export function usePlayerInit({ user, character, constants, wsPlayer }) {
   const { UNITS_PER_REGION = 192, WALK_SPEED_WU = 0.375 } = constants || {};
@@ -37,22 +34,6 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
 
   // ── CACHE DE ÚLTIMA POSICIÓN CONFIRMADA (para umbral) ──
   const lastConfirmedPos = useRef({ worldX: null, worldZ: null, time: 0 });
-
-  // ── COLA DE PAQUETES ──
-  const packetQueueRef = useRef(null);
-  // Ref para mantener siempre actualizada la función applyPosition dentro del callback de la cola
-  const applyPositionRef = useRef(null);
-
-  // Inicializar la cola de paquetes
-  if (!packetQueueRef.current) {
-    const queueCallback = (mergedPos) => {
-      // Usar la última versión de applyPosition (evita closure stale)
-      if (applyPositionRef.current) {
-        applyPositionRef.current(mergedPos);
-      }
-    };
-    packetQueueRef.current = createPacketQueue(queueCallback);
-  }
 
   // Estado del jugador
   const [players, setPlayers] = useState({
@@ -72,37 +53,41 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     }
   });
 
-  /**
-   * Aplica una posición ya filtrada por la cola de paquetes.
-   * Este método se llama desde el rAF de packetQueue.
-   */
-  function applyPosition(wsData) {
-    if (!wsData || wsData.region == null || wsData.posX == null) return;
+  // Sincronizar wsPlayer → players con filtro de umbral
+  useEffect(() => {
+    if (!wsPlayer || wsPlayer.region == null || wsPlayer.posX == null) return;
 
-    const regionId = Number(wsData.region);
-    const posX = Number(wsData.posX);
-    const posZ = Number(wsData.posZ ?? 0);
+    const regionId = Number(wsPlayer.region);
+    const posX = Number(wsPlayer.posX);
+    const posZ = Number(wsPlayer.posZ ?? 0);
     const { regionX, regionZ, worldX, worldZ } = regionXYToWorld(
       regionId & 0xFF, (regionId >> 8) & 0xFF, posX, posZ
     );
-    const posY = wsData?.posY ?? null;
+    const posY = wsPlayer?.posY ?? null;
+    const stopped = wsPlayer._stopped;
 
-    // Verificar umbral de cambio mínimo
-    const lastPos = lastConfirmedPos.current;
-    const now = performance.now();
-    const hasLastPos = lastPos.worldX != null && lastPos.worldZ != null;
-    const dist = hasLastPos
-      ? Math.sqrt((worldX - lastPos.worldX) ** 2 + (worldZ - lastPos.worldZ) ** 2)
-      : Infinity;
-    const timeSinceLastUpdate = hasLastPos ? now - lastPos.time : Infinity;
+    // ── FILTRO DE UMBRAL ──
+    // Solo se salta si la fuente NO es PLAYER_MOVE_CONFIRMED y el cambio es mínimo.
+    // PLAYER_MOVE_CONFIRMED siempre pasa (es la fuente autoritativa).
+    const isAuthoritative = wsPlayer._source === 'PLAYER_MOVE_CONFIRMED' || stopped;
+    if (!isAuthoritative && hasPositionRef.current) {
+      const lastPos = lastConfirmedPos.current;
+      const now = performance.now();
+      if (lastPos.worldX != null && lastPos.worldZ != null) {
+        const dx = worldX - lastPos.worldX;
+        const dz = worldZ - lastPos.worldZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const timeSinceLastUpdate = now - lastPos.time;
 
-    if (hasLastPos && dist < POSITION_THRESHOLD && timeSinceLastUpdate < MAX_TIME_BETWEEN_UPDATES_MS) {
-      console.log(`[usePlayerInit] ⏭ Posición ignorada por umbral (dist=${dist.toFixed(2)} < ${POSITION_THRESHOLD})`);
-      return;
+        if (dist < POSITION_THRESHOLD && timeSinceLastUpdate < MAX_TIME_BETWEEN_UPDATES_MS) {
+          // Silencioso — no loguear para no saturar consola
+          return;
+        }
+      }
     }
 
     // Actualizar caché
-    lastConfirmedPos.current = { worldX, worldZ, time: now };
+    lastConfirmedPos.current = { worldX, worldZ, time: performance.now() };
 
     // Inicializar cámara solo la primera vez
     if (!hasPositionRef.current) {
@@ -113,7 +98,6 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     setPlayers((prev) => {
       const prevMe = prev?.me;
 
-      // Si no hay prevMe o no tiene posición, actualizar directamente
       if (!prevMe || prevMe.worldX == null) {
         const me = {
           id: "me",
@@ -124,11 +108,11 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
           isFollowingPlayer: true,
           renderX: playerToCanvas(regionX, regionZ, posX, posZ).canvasX,
           renderZ: playerToCanvas(regionX, regionZ, posX, posZ).canvasZ,
-          hp: wsData?.hp ?? prevMe?.hp ?? 0,
-          maxHp: wsData?.maxHp ?? prevMe?.maxHp ?? 0,
-          mp: wsData?.mp ?? prevMe?.mp ?? 0,
-          maxMp: wsData?.maxMp ?? prevMe?.maxMp ?? 0,
-          level: wsData?.level ?? prevMe?.level ?? character?.level ?? 1,
+          hp: wsPlayer?.hp ?? prevMe?.hp ?? 0,
+          maxHp: wsPlayer?.maxHp ?? prevMe?.maxHp ?? 0,
+          mp: wsPlayer?.mp ?? prevMe?.mp ?? 0,
+          maxMp: wsPlayer?.maxMp ?? prevMe?.maxMp ?? 0,
+          level: wsPlayer?.level ?? prevMe?.level ?? character?.level ?? 1,
           race,
           regionX, regionZ,
           posX, posZ, posY,
@@ -139,7 +123,6 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
         return { me };
       }
 
-      // Preservar cameraWX/cameraWZ y estado de movimiento
       const me = {
         ...prevMe,
         worldX, worldZ,
@@ -149,70 +132,14 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
         posX, posZ, posY,
       };
 
-      // Si el servidor detuvo al jugador, marcar _stopped
-      if (wsData._stopped) {
-        me._stopped = wsData._stopped;
+      if (stopped) {
+        me._stopped = stopped;
         me.moving = false;
       }
 
       return { me };
     });
-  }
-
-  // Sincronizar applyPositionRef con la última versión (evita closures stale en packetQueue)
-  applyPositionRef.current = applyPosition;
-
-  // ── SINCRONIZAR wsPlayer → cola de paquetes ──
-  useEffect(() => {
-    if (!wsPlayer) return;
-
-    // Detectar qué tipo de actualización es por la marca _source
-    const type = wsPlayer._source === 'PLAYER_MOVE_CONFIRMED' ? 'PLAYER_MOVE_CONFIRMED' : 'PLAYER_UPDATE';
-
-    // Caso especial: PLAYER_STOPPED
-    if (wsPlayer._stopped) {
-      // Aplicar directamente (STOPPED no debe filtrarse)
-      if (wsPlayer.region != null && wsPlayer.posX != null) {
-        applyPosition({
-          region: wsPlayer.region,
-          posX: wsPlayer.posX,
-          posZ: wsPlayer.posZ,
-          posY: wsPlayer.posY,
-          _stopped: wsPlayer._stopped,
-        });
-      }
-      return;
-    }
-
-    // Caso especial: primera posición (PLAYER_POSITION_INIT)
-    if (!hasPositionRef.current && wsPlayer.region != null && wsPlayer.posX != null) {
-      applyPosition({
-        region: wsPlayer.region,
-        posX: wsPlayer.posX,
-        posZ: wsPlayer.posZ,
-        posY: wsPlayer.posY,
-      });
-      return;
-    }
-
-    // Encolar para procesamiento con rate limiting
-    if (wsPlayer.region != null && wsPlayer.posX != null) {
-      packetQueueRef.current.push(
-        type,
-        wsPlayer.region,
-        wsPlayer.posX,
-        wsPlayer.posZ,
-        wsPlayer.posY
-      );
-    }
-  }, [wsPlayer]);
-
-  // Resetear la cola cuando el personaje cambia
-  useEffect(() => {
-    packetQueueRef.current?.reset();
-    hasPositionRef.current = false;
-    lastConfirmedPos.current = { worldX: null, worldZ: null, time: 0 };
-  }, [character?.refObjId]);
+  }, [wsPlayer, character, UNITS_PER_REGION, WALK_SPEED_WU, race]);
 
   return { players, setPlayers, race };
 }
