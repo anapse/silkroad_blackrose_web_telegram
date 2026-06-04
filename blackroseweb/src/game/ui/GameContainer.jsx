@@ -659,10 +659,11 @@ export default function GameContainer({ user, character }) {
             const cRX = lerp.cRX;
             const cRZ = lerp.cRZ;
 
-            // Log de diagnóstico cuando el delta es significativo
+            // Log de diagnóstico cuando el target cambia significativamente
+            // (solo por PLAYER_UPDATE, que es la única fuente de posición)
             const maxDiff = Math.max(diffX, diffZ);
             if (maxDiff > 0.05) {
-              console.log(`📍 [CAMERA] cRX estabilizado: Δ=${maxDiff.toFixed(2)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${cRX.toFixed(1)},${cRZ.toFixed(1)})`);
+              console.log(`📍 [CAMERA] Target actualizado por PLAYER_UPDATE: Δ=${maxDiff.toFixed(2)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${cRX.toFixed(1)},${cRZ.toFixed(1)})`);
             }
 
             const vpW = vp ? vp.offsetWidth : window.innerWidth;

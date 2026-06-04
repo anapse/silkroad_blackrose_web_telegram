@@ -151,10 +151,12 @@ export function useMapInteractions({
 
       return {
         ...prev,
-        // Ya no guardamos _targetWX/WZ — el player se mueve solo con PLAYER_STOPPED
+        // NO modificar ninguna propiedad del jugador.
+        // La posición solo la actualiza PLAYER_UPDATE (0xB023) del servidor.
         me: { ...me, isFollowingPlayer: true }
       };
     });
+    console.log("[Click] 🖱 Enviado movimiento al servidor, sin cambiar posición local");
   };
 
   const handleMarkerClick = (m, e) => {

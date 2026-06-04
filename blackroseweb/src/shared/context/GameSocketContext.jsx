@@ -4,17 +4,9 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { loadEntityData } from "../../game/utils/entityNames.js";
-import { regionToWorld, regionXYToWorld } from "../../game/utils/geo.js";
+import { regionToWorld } from "../../game/utils/geo.js";
 import { GAME_CONSTANTS } from "../constants/gameConstants.js";
 import { processEntityMove, clearEntityBuffer } from "../../game/hooks/useEntityManager.js";
-
-/**
- * Umbral de corrección para PLAYER_UPDATE.
- * Si la diferencia entre la posición autoritativa (PLAYER_MOVE_CONFIRMED)
- * y la que envía PLAYER_UPDATE es menor a este valor, se ignora posX/posZ.
- * Solo si el servidor detecta una desviación grande (>3.0) se corrige.
- */
-const AUTHORITATIVE_CORRECTION_THRESHOLD = 3.0;
 const UNITS_PER_REGION = GAME_CONSTANTS.MAP.UNITS_PER_REGION;
 
 // Valor por defecto para evitar crashes cuando el provider no está montado
@@ -81,12 +73,6 @@ export function GameSocketProvider({ children }) {
 
   const packetHandlersRef = useRef({});
   const nameCacheRef = useRef({});
-  /**
-   * Posición autoritativa del jugador.
-   * Solo PLAYER_MOVE_CONFIRMED (0xB021) puede actualizarla.
-   * PLAYER_UPDATE (0xB023) solo la corrige si hay desviación > 3.0 unidades.
-   */
-  const authoritativeRef = useRef({ worldX: null, worldZ: null, region: null, posX: null, posZ: null });
 
   const registerPacketHandler = useCallback((opcode, handler) => {
     packetHandlersRef.current[opcode] = handler;
@@ -326,95 +312,33 @@ export function GameSocketProvider({ children }) {
           }
 
           if (msg.detail?.type === "PLAYER_MOVE_CONFIRMED") {
-            // El servidor confirmó el movimiento (0xB021).
-            // Esta es la fuente AUTORITATIVA de posición.
+            // 0xB021 — El servidor confirmó el movimiento.
+            // NO actualizamos posición aquí. Solo registramos el log.
+            // La posición la actualiza exclusivamente PLAYER_UPDATE (0xB023).
             const d = msg.detail;
             if (d.dstRegion != null && d.dstRegion > 0 && d.dstX != null && d.dstZ != null) {
-              const { regionX, regionZ, worldX, worldZ } = regionToWorld(
-                Number(d.dstRegion), d.dstX, d.dstZ
-              );
-              // Actualizar posición autoritativa
-              authoritativeRef.current = {
-                worldX, worldZ,
-                region: d.dstRegion,
-                posX: d.dstX,
-                posZ: d.dstZ,
-              };
-              setPlayerState((prev) => {
-                const updates = {
-                  region: d.dstRegion,
-                  posX: d.dstX,
-                  posZ: d.dstZ,
-                  worldX,
-                  worldZ,
-                  regionX,
-                  regionZ,
-                  _source: 'PLAYER_MOVE_CONFIRMED',
-                };
-                if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
-                return { ...prev, ...updates };
-              });
+              console.log(`[PLAYER_MOVE_CONFIRMED] ✅ Movimiento confirmado por servidor (dstRegion=${d.dstRegion}, dstX=${d.dstX}, dstZ=${d.dstZ}) — sin cambiar posición local`);
             }
           }
 
           if (msg.detail?.type === "PLAYER_UPDATE") {
+            // 0xB023 — Única fuente de verdad para la posición del jugador.
+            // El servidor envía la posición periódicamente. Siempre confiamos en ella.
             const d = msg.detail;
-            const auth = authoritativeRef.current;
             setPlayerState((prev) => {
-              // Solo actualizar posición de PLAYER_UPDATE si:
-              // 1. No hay posición autoritativa todavía (primera vez)
-              // 2. La diferencia con la posición autoritativa es > 3.0 unidades (corrección mayor)
-              // De lo contrario, solo actualizar HP/MP/level, preservando posX/posZ
               const sameRegion = d.region == null || d.region === prev.region;
-              let newPosX = prev.posX;
-              let newPosZ = prev.posZ;
+              const newPosX = sameRegion ? (d.posX ?? prev.posX) : prev.posX;
+              const newPosZ = sameRegion ? (d.posZ ?? prev.posZ) : prev.posZ;
+              const newRegion = d.region ?? prev.region;
 
-              if (d.posX != null && d.posZ != null && sameRegion) {
-                const hasAuth = auth.worldX != null && auth.worldZ != null;
-                if (!hasAuth) {
-                  // No hay autoridad todavía — usar PLAYER_UPDATE como inicial
-                  newPosX = d.posX;
-                  newPosZ = d.posZ;
-                  // También establecer autoridad inicial
-                  const { worldX: initWX, worldZ: initWZ } = regionXYToWorld(
-                    Number(d.region || prev.region) & 0xFF,
-                    (Number(d.region || prev.region) >> 8) & 0xFF,
-                    d.posX, d.posZ
-                  );
-                  authoritativeRef.current = {
-                    worldX: initWX, worldZ: initWZ,
-                    region: d.region || prev.region,
-                    posX: d.posX, posZ: d.posZ,
-                  };
-                } else {
-                  // Calcular worldX/worldZ de esta UPDATE para comparar con autoridad
-                  const updateRegion = Number(d.region || prev.region);
-                  const { worldX: uwx, worldZ: uwz } = regionXYToWorld(
-                    updateRegion & 0xFF,
-                    (updateRegion >> 8) & 0xFF,
-                    d.posX, d.posZ
-                  );
-                  // Distancia euclidiana en world units
-                  const dx = uwx - auth.worldX;
-                  const dz = uwz - auth.worldZ;
-                  const dist = Math.sqrt(dx * dx + dz * dz);
-                  
-                  if (dist > AUTHORITATIVE_CORRECTION_THRESHOLD) {
-                    // El servidor nos corrige — hay desviación significativa
-                    console.log(`[PLAYER_UPDATE] 🔧 Corrección de posición aplicada: dist=${dist.toFixed(1)} > ${AUTHORITATIVE_CORRECTION_THRESHOLD}`);
-                    newPosX = d.posX;
-                    newPosZ = d.posZ;
-                    // Actualizar autoridad también
-                    authoritativeRef.current = {
-                      worldX: uwx, worldZ: uwz,
-                      region: updateRegion,
-                      posX: d.posX, posZ: d.posZ,
-                    };
-                  } else {
-                    // Micro-cambio ignorado — preservar posición autoritativa
-                    console.log(`[PLAYER_UPDATE] ⏭ Posición ignorada (dist=${dist.toFixed(1)} < ${AUTHORITATIVE_CORRECTION_THRESHOLD})`);
-                  }
-                }
+              // Calcular worldX/worldZ para referencia (usado en logs y diagnóstico)
+              let worldX = prev.worldX, worldZ = prev.worldZ;
+              if (newRegion && newPosX != null && newPosZ != null) {
+                const { worldX: wX, worldZ: wZ } = regionToWorld(
+                  Number(newRegion), newPosX, newPosZ
+                );
+                worldX = wX;
+                worldZ = wZ;
               }
 
               return {
@@ -426,10 +350,12 @@ export function GameSocketProvider({ children }) {
                 exp: d.exp ?? prev.exp,
                 level: d.level ?? prev.level,
                 sp: d.sp ?? prev.sp,
-                region: d.region ?? prev.region,
+                region: newRegion,
                 posX: newPosX,
                 posY: sameRegion ? (d.posY ?? prev.posY) : prev.posY,
                 posZ: newPosZ,
+                worldX,
+                worldZ,
                 _source: 'PLAYER_UPDATE',
               };
             });
