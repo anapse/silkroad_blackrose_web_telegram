@@ -7,6 +7,9 @@ let npcLookup = null;   // { refObjId: 'nombre_real' }
 let typeLookup = null;  // { refObjId: 'MOB' | 'NPC' | 'CHAR' } según CodeName128
 let charIds = null;     // Set de IDs de personajes (chars.json)
 
+// Set para evitar logs repetidos de nombres faltantes
+const loggedMissingIds = new Set();
+
 /**
  * Carga datos: mobs.json + mob_names.json + chars.json, etc.
  */
@@ -92,9 +95,12 @@ export function getEntityName(refObjId, entityType) {
     return null;
   }
 
-  // Solo log si realmente no hay nombre en ningún lado
+  // Solo log una vez por refObjId (evita miles de logs repetidos)
   if (!typeLookup?.[id]) {
-    console.log(`[getEntityName] ❌ NO NAME for refObjId=${id} entityType=${entityType}`);
+    if (!loggedMissingIds.has(id)) {
+      loggedMissingIds.add(id);
+      console.log(`[getEntityName] ❌ NO NAME for refObjId=${id} entityType=${entityType}`);
+    }
   }
   return null;
 }

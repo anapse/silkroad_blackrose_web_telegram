@@ -2,9 +2,18 @@ import { useState, useRef, useEffect } from "react";
 import { playerToCanvas, regionXYToWorld } from "../utils/geo.js";
 
 /**
+ * Umbral mínimo de cambio de posición (world units).
+ * Si la distancia desde la última posición es menor a este valor
+ * y no han pasado más de 100ms, se ignora la actualización.
+ * Esto evita micro-oscilaciones causadas por PLAYER_UPDATE.
+ */
+const POSITION_THRESHOLD = 0.5;
+const MAX_TIME_MS = 100;
+
+/**
  * Hook para procesar los datos del jugador desde el WebSocket.
  * La ÚNICA fuente de posición es PLAYER_UPDATE (0xB023).
- * PLAYER_MOVE_CONFIRMED (0xB021) ya no actualiza posición (solo log).
+ * PLAYER_MOVE_CONFIRMED (0xB021) solo log, no actualiza posición.
  * 
  * El clic en el mapa solo envía el paquete MOVE al servidor.
  * La posición se actualiza exclusivamente cuando el servidor responde.
@@ -20,6 +29,8 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
   const hasPositionRef = useRef(false);
   // Referencia para preservar cameraWX/cameraWZ entre actualizaciones
   const cameraRef = useRef({ wx: null, wz: null });
+  // Última posición confirmada (para filtro de umbral)
+  const lastPosRef = useRef({ worldX: null, worldZ: null, time: 0 });
 
   // Estado del jugador
   const [players, setPlayers] = useState({
@@ -39,7 +50,7 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     }
   });
 
-  // Sincronizar wsPlayer → players
+  // Sincronizar wsPlayer → players con filtro de umbral
   useEffect(() => {
     if (!wsPlayer || wsPlayer.region == null || wsPlayer.posX == null) return;
 
@@ -51,6 +62,27 @@ export function usePlayerInit({ user, character, constants, wsPlayer }) {
     );
     const posY = wsPlayer?.posY ?? null;
     const stopped = wsPlayer._stopped;
+
+    // ── FILTRO DE UMBRAL ──
+    // Solo aplica si ya tenemos posición previa y NO es PLAYER_STOPPED
+    if (hasPositionRef.current && !stopped) {
+      const last = lastPosRef.current;
+      if (last.worldX != null && last.worldZ != null) {
+        const now = performance.now();
+        const dx = worldX - last.worldX;
+        const dz = worldZ - last.worldZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const timeSinceLastUpdate = now - last.time;
+
+        if (dist < POSITION_THRESHOLD && timeSinceLastUpdate < MAX_TIME_MS) {
+          // Micro-cambio ignorado — no genera log para no saturar
+          return;
+        }
+      }
+    }
+
+    // Actualizar caché de última posición
+    lastPosRef.current = { worldX, worldZ, time: performance.now() };
 
     // Inicializar cámara solo la primera vez
     if (!hasPositionRef.current) {

@@ -10,7 +10,10 @@
  * 1. Buffer de últimas 3 posiciones por entityId
  * 2. Promedio móvil para suavizar
  * 3. Rechazar outliers (>10 unidades del promedio)
- * 4. Interpolación entre frames vía _targetWX/_targetWZ
+ * 4. DETECTAR CAMBIOS DE REGIÓN: si dstRegion cambia, NO promediar
+ *    (es un teletransporte válido)
+ * 5. LÍMITE DE VELOCIDAD: si la distancia > 30 unidades en <100ms, ignorar
+ *    (paquete corrupto)
  *
  * @returns {{ processEntityMove: Function, clearEntityBuffer: Function, clearAllBuffers: Function }}
  */
@@ -18,6 +21,8 @@
 const MAX_BUFFER_SIZE = 3;
 const OUTLIER_THRESHOLD = 10; // unidades world
 const SMOOTHING_FACTOR = 0.3; // 30% hacia el promedio por actualización
+const MAX_SPEED_WU_PER_100MS = 30; // velocidad máxima para considerar válido
+const SPEED_TIME_WINDOW_MS = 100;
 
 // ── ALMACÉN GLOBAL DE BUFFERS (persiste toda la sesión) ──
 const entityBuffers = new Map();
@@ -95,6 +100,24 @@ export function processEntityMove(entityData, moveData, regionToWorldFn) {
     entityBuffers.set(uid, createPositionBuffer());
   }
   const buf = entityBuffers.get(uid);
+
+  // ── DETECCIÓN DE CAMBIO DE REGIÓN ──
+  // Si dstRegion es diferente a la última región conocida, es un teletransporte válido.
+  // No promediamos — aceptamos la nueva posición directamente.
+  if (entityData && entityData.region && moveData.dstRegion && entityData.region !== moveData.dstRegion) {
+    console.log(`[EntityManager] 🚀 Entidad ${uid}: región cambiada de ${entityData.region} a ${moveData.dstRegion}, aplicando teletransporte`);
+    buf.clear();
+    buf.push({ worldX: dstWorldX, worldZ: dstWorldZ });
+    return {
+      ...entityData,
+      region: moveData.dstRegion,
+      regionX: dstRegionX, regionZ: dstRegionZ,
+      posX: moveData.dstX, posZ: moveData.dstZ,
+      worldX: dstWorldX, worldZ: dstWorldZ,
+      _targetWX: dstWorldX, _targetWZ: dstWorldZ,
+    };
+  }
+
   const newPos = { worldX: dstWorldX, worldZ: dstWorldZ };
 
   // Caso: entidad nueva — sin buffer previo
@@ -104,15 +127,25 @@ export function processEntityMove(entityData, moveData, regionToWorldFn) {
       uniqueId: uid,
       entityType: moveData.entityType || 'CHAR',
       region: moveData.dstRegion,
-      regionX: dstRegionX,
-      regionZ: dstRegionZ,
-      posX: moveData.dstX,
-      posZ: moveData.dstZ,
-      worldX: dstWorldX,
-      worldZ: dstWorldZ,
-      _targetWX: dstWorldX,
-      _targetWZ: dstWorldZ,
+      regionX: dstRegionX, regionZ: dstRegionZ,
+      posX: moveData.dstX, posZ: moveData.dstZ,
+      worldX: dstWorldX, worldZ: dstWorldZ,
+      _targetWX: dstWorldX, _targetWZ: dstWorldZ,
     };
+  }
+
+  // ── LÍMITE DE VELOCIDAD ──
+  // Si la distancia desde la última posición es > 30 unidades y no hay cambio de región,
+  // es probablemente un paquete corrupto. Ignorar.
+  const lastPos = buf.getLast();
+  if (lastPos && entityData.region && moveData.dstRegion === entityData.region) {
+    const dx = dstWorldX - lastPos.worldX;
+    const dz = dstWorldZ - lastPos.worldZ;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist > MAX_SPEED_WU_PER_100MS) {
+      console.log(`[EntityManager] ⚠ Entidad ${uid}: velocidad excesiva (${dist.toFixed(0)} > ${MAX_SPEED_WU_PER_100MS}), ignorando`);
+      return null;
+    }
   }
 
   // Verificar si es un outlier
@@ -133,12 +166,9 @@ export function processEntityMove(entityData, moveData, regionToWorldFn) {
     return {
       ...entityData,
       region: moveData.dstRegion,
-      regionX: dstRegionX,
-      regionZ: dstRegionZ,
-      posX: moveData.dstX,
-      posZ: moveData.dstZ,
-      worldX: smoothedX,
-      worldZ: smoothedZ,
+      regionX: dstRegionX, regionZ: dstRegionZ,
+      posX: moveData.dstX, posZ: moveData.dstZ,
+      worldX: smoothedX, worldZ: smoothedZ,
       _targetWX: avgPos ? avgPos.worldX : smoothedX,
       _targetWZ: avgPos ? avgPos.worldZ : smoothedZ,
     };
@@ -161,14 +191,10 @@ export function processEntityMove(entityData, moveData, regionToWorldFn) {
   return {
     ...entityData,
     region: moveData.dstRegion,
-    regionX: dstRegionX,
-    regionZ: dstRegionZ,
-    posX: moveData.dstX,
-    posZ: moveData.dstZ,
-    worldX: targetWX,
-    worldZ: targetWZ,
-    _targetWX: targetWX,
-    _targetWZ: targetWZ,
+    regionX: dstRegionX, regionZ: dstRegionZ,
+    posX: moveData.dstX, posZ: moveData.dstZ,
+    worldX: targetWX, worldZ: targetWZ,
+    _targetWX: targetWX, _targetWZ: targetWZ,
   };
 }
 

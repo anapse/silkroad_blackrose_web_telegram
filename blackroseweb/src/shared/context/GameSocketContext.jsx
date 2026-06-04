@@ -74,9 +74,6 @@ export function GameSocketProvider({ children }) {
   const packetHandlersRef = useRef({});
   const nameCacheRef = useRef({});
 
-  // Ref para evitar actualizaciones duplicadas de posición en menos de 100ms
-  const lastPosUpdateRef = useRef({ region: null, posX: null, posZ: null, time: 0 });
-
   const registerPacketHandler = useCallback((opcode, handler) => {
     packetHandlersRef.current[opcode] = handler;
   }, []);
@@ -339,53 +336,47 @@ export function GameSocketProvider({ children }) {
 
           if (msg.detail?.type === "PLAYER_MOVE_CONFIRMED") {
             // 0xB021 — El servidor confirmó el movimiento.
-            // Actualizar posición inmediatamente. Usar dedup para evitar
-            // oscilación con PLAYER_STOPPED (0xB023 para el player).
+            // NO actualiza posición. Solo registra el log.
+            // La posición la actualiza exclusivamente PLAYER_UPDATE (0xB023).
             const d = msg.detail;
             if (d.dstRegion != null && d.dstRegion > 0 && d.dstX != null && d.dstZ != null) {
-              const now = Date.now();
-              const last = lastPosUpdateRef.current;
-              const isDuplicate = (
-                last.region === d.dstRegion &&
-                last.posX === d.dstX &&
-                last.posZ === d.dstZ &&
-                now - last.time < 100
-              );
-              if (!isDuplicate) {
-                lastPosUpdateRef.current = { region: d.dstRegion, posX: d.dstX, posZ: d.dstZ, time: now };
-                const { regionX, regionZ, worldX, worldZ } = regionToWorld(
-                  Number(d.dstRegion), d.dstX, d.dstZ
-                );
-                setPlayerState((prev) => {
-                  const updates = {
-                    region: d.dstRegion,
-                    posX: d.dstX,
-                    posZ: d.dstZ,
-                    worldX, worldZ, regionX, regionZ,
-                    _source: 'PLAYER_MOVE_CONFIRMED',
-                  };
-                  if (d.dstY != null && d.dstY > 0) updates.posY = d.dstY;
-                  return { ...prev, ...updates };
-                });
-              }
+              console.log(`[PLAYER_MOVE_CONFIRMED] ✅ Movimiento confirmado (dstRegion=${d.dstRegion}, dstX=${d.dstX}, dstZ=${d.dstZ}) — sin cambiar posición local`);
             }
           }
 
           if (msg.detail?.type === "PLAYER_UPDATE") {
-            // PLAYER_UPDATE solo actualiza stats (HP/MP/level).
-            // NO toca posición — eso lo hacen PLAYER_MOVE_CONFIRMED y PLAYER_STOPPED.
+            // PLAYER_UPDATE (0xB023) — Única fuente de verdad para la posición.
+            // También actualiza stats. NO ignoramos posición aquí.
             const d = msg.detail;
-            setPlayerState((prev) => ({
-              ...prev,
-              hp: d.hp ?? prev.hp,
-              maxHp: d.maxHp ?? prev.maxHp,
-              mp: d.mp ?? prev.mp,
-              maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
-              exp: d.exp ?? prev.exp,
-              level: d.level ?? prev.level,
-              sp: d.sp ?? prev.sp,
-              // NO actualizar region/posX/posZ/worldX/worldZ
-            }));
+            setPlayerState((prev) => {
+              const sameRegion = d.region == null || d.region === prev.region;
+              const newRegion = d.region ?? prev.region;
+              const newPosX = sameRegion ? (d.posX ?? prev.posX) : prev.posX;
+              const newPosY = sameRegion ? (d.posY ?? prev.posY) : prev.posY;
+              const newPosZ = sameRegion ? (d.posZ ?? prev.posZ) : prev.posZ;
+
+              // Calcular worldX/worldZ si hay posición válida
+              let worldX = prev.worldX, worldZ = prev.worldZ, regionX = prev.regionX, regionZ = prev.regionZ;
+              if (newRegion > 0 && newPosX != null && newPosZ != null) {
+                const result = regionToWorld(Number(newRegion), newPosX, newPosZ);
+                worldX = result.worldX; worldZ = result.worldZ;
+                regionX = result.regionX; regionZ = result.regionZ;
+              }
+
+              return {
+                ...prev,
+                hp: d.hp ?? prev.hp,
+                maxHp: d.maxHp ?? prev.maxHp,
+                mp: d.mp ?? prev.mp,
+                maxMp: d.maxMp ?? d.mp ?? prev.maxMp,
+                exp: d.exp ?? prev.exp,
+                level: d.level ?? prev.level,
+                sp: d.sp ?? prev.sp,
+                region: newRegion, posX: newPosX, posY: newPosY, posZ: newPosZ,
+                worldX, worldZ, regionX, regionZ,
+                _source: 'PLAYER_UPDATE',
+              };
+            });
           }
 
           if (msg.detail?.type === "INVENTORY_DATA") {

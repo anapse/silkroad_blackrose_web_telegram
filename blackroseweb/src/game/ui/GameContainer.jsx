@@ -646,24 +646,34 @@ export default function GameContainer({ user, character }) {
               lerp.cRZ = targetRZ;
             }
 
-            // Aplicar LERP: mover actual → target
-            lerp.cRX += (targetRX - lerp.cRX) * lerpFactor;
-            lerp.cRZ += (targetRZ - lerp.cRZ) * lerpFactor;
+            // ── SALTO IGNORADO ──
+            // Si el target cambia más de 50 unidades de golpe, probablemente
+            // es un paquete corrupto o desincronización. Ignoramos el salto
+            // y mantenemos el LERP actual.
+            const rawDiffX = Math.abs(targetRX - lerp.cRX);
+            const rawDiffZ = Math.abs(targetRZ - lerp.cRZ);
+            if (rawDiffX > 50 || rawDiffZ > 50) {
+              console.log(`📍 [CAMERA] Salto grande ignorado: Δ=${Math.max(rawDiffX, rawDiffZ).toFixed(1)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${lerp.cRX.toFixed(1)},${lerp.cRZ.toFixed(1)})`);
+              // NO actualizar lerp — mantener posición actual
+            } else {
+              // Aplicar LERP: mover actual → target
+              lerp.cRX += (targetRX - lerp.cRX) * lerpFactor;
+              lerp.cRZ += (targetRZ - lerp.cRZ) * lerpFactor;
 
-            // Si la diferencia es muy pequeña, saltar directo al target
-            const diffX = Math.abs(targetRX - lerp.cRX);
-            const diffZ = Math.abs(targetRZ - lerp.cRZ);
-            if (diffX < 0.01) lerp.cRX = targetRX;
-            if (diffZ < 0.01) lerp.cRZ = targetRZ;
+              // Si la diferencia es muy pequeña, saltar directo al target
+              const diffX = Math.abs(targetRX - lerp.cRX);
+              const diffZ = Math.abs(targetRZ - lerp.cRZ);
+              if (diffX < 0.01) lerp.cRX = targetRX;
+              if (diffZ < 0.01) lerp.cRZ = targetRZ;
+            }
 
             const cRX = lerp.cRX;
             const cRZ = lerp.cRZ;
 
             // Log de diagnóstico cuando el target cambia significativamente
-            // (solo por PLAYER_UPDATE, que es la única fuente de posición)
-            const maxDiff = Math.max(diffX, diffZ);
-            if (maxDiff > 0.05) {
-              console.log(`📍 [CAMERA] Target actualizado por PLAYER_UPDATE: Δ=${maxDiff.toFixed(2)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${cRX.toFixed(1)},${cRZ.toFixed(1)})`);
+            const maxDiff = Math.max(rawDiffX, rawDiffZ);
+            if (maxDiff > 0.05 && rawDiffX <= 50 && rawDiffZ <= 50) {
+              console.log(`📍 [CAMERA] Target suavizado: Δ=${maxDiff.toFixed(2)} target=(${targetRX.toFixed(1)},${targetRZ.toFixed(1)}) actual=(${cRX.toFixed(1)},${cRZ.toFixed(1)})`);
             }
 
             const vpW = vp ? vp.offsetWidth : window.innerWidth;
